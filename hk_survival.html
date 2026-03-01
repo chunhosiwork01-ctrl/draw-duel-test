@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hong Kong Housing Reality Quiz</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --bg-soft: #121922;
+      --card: rgba(18, 25, 34, 0.9);
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #edf2f7;
+      --muted: #9aa7b7;
+      --accent: #d2b172;
+      --accent-strong: #f2c06c;
+      --danger: #ff7f7f;
+      --good: #89d7a1;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(210, 177, 114, 0.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(73, 92, 122, 0.2), transparent 30%),
+        linear-gradient(180deg, #081018 0%, #0b0f14 45%, #070a0f 100%);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(100%, 820px);
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      padding: 28px;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 32%, transparent 68%, rgba(255,255,255,0.02));
+    }
+
+    .eyebrow {
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1, h2 {
+      margin: 0;
+      line-height: 1.15;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 42px);
+      max-width: 10ch;
+    }
+
+    h2 {
+      font-size: clamp(24px, 3vw, 34px);
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .intro {
+      display: grid;
+      gap: 18px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .tag {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .actions {
+      margin-top: 10px;
+    }
+
+    .lang-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .lang-btn {
+      width: 100%;
+      text-align: left;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .lang-btn:hover,
+    .lang-btn:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(210, 177, 114, 0.5);
+      background: rgba(255,255,255,0.06);
+      outline: none;
+    }
+
+    .lang-btn strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    .small-note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .primary-btn {
+      min-width: 220px;
+      padding: 15px 24px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #17120c;
+      font-weight: 700;
+      transition: transform 0.18s ease, filter 0.18s ease;
+    }
+
+    .primary-btn:hover,
+    .primary-btn:focus-visible {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      outline: none;
+    }
+
+    .screen {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .screen.fade-out {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    .progress-wrap {
+      margin-bottom: 22px;
+    }
+
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .progress-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), #f7d38d);
+      transition: width 0.3s ease;
+    }
+
+    .question-copy {
+      margin-bottom: 22px;
+    }
+
+    .question-copy p {
+      margin-top: 10px;
+    }
+
+    .options {
+      display: grid;
+      gap: 14px;
+    }
+
+    .option {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      padding: 18px 18px 16px;
+      border-radius: 18px;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .option:hover,
+    .option:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(210, 177, 114, 0.5);
+      background: rgba(255,255,255,0.06);
+      outline: none;
+    }
+
+    .option-title {
+      display: block;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .option-impact {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(210, 177, 114, 0.12);
+      color: #f0d6a5;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .option-desc {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hint {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 22px 0;
+    }
+
+    .result-stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .result-stat strong {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .result-stat span {
+      display: block;
+      font-size: clamp(24px, 3vw, 34px);
+      font-weight: 700;
+    }
+
+    .negative {
+      color: var(--danger);
+    }
+
+    .positive {
+      color: var(--good);
+    }
+
+    .summary {
+      border: 1px solid rgba(210, 177, 114, 0.24);
+      background: rgba(210, 177, 114, 0.08);
+      border-radius: 18px;
+      padding: 18px;
+      margin: 18px 0;
+      color: #f4e6ca;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .list-item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .list-item b {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .footer-actions {
+      margin-top: 22px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .ghost-btn {
+      min-width: 160px;
+      padding: 14px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .ghost-btn:hover,
+    .ghost-btn:focus-visible {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255,255,255,0.06);
+      outline: none;
+    }
+
+    .fallback {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 14px;
+      }
+
+      .card {
+        border-radius: 20px;
+        padding: 20px;
+      }
+
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .list-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .primary-btn,
+      .ghost-btn {
+        width: 100%;
+      }
+
+      .lang-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .lang-btn,
+      .primary-btn,
+      .ghost-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div id="app" class="card">
+      <div class="fallback">
+        <div>
+          <div class="eyebrow">Hong Kong Housing Reality Quiz</div>
+          <h1>Loading the quiz...</h1>
+          <p>If this message stays here, refresh the page in Chrome or Safari.</p>
+        </div>
+      </div>
+    </div>
+    <noscript>
+      <div class="card" style="margin-top:16px;">
+        <h2>JavaScript is required</h2>
+        <p>This quiz runs fully inside one HTML file and needs JavaScript enabled.</p>
+      </div>
+    </noscript>
+  </main>
+
+  <script>
+    (function () {
+      var app = document.getElementById("app");
+      if (!app) {
+        return;
+      }
+
+      var queryLang = "";
+      try {
+        queryLang = new URLSearchParams(window.location.search).get("lang") || "";
+      } catch (error) {
+        queryLang = "";
+      }
+
+      var state = {
+        step: -1,
+        answers: {},
+        ready: false,
+        language: queryLang === "zh" || queryLang === "en" ? queryLang : ""
+      };
+
+      var questionOrder = [
+        "age",
+        "job",
+        "relationship",
+        "flat",
+        "rent",
+        "food",
+        "transport",
+        "social",
+        "familySupport",
+        "insurance",
+        "randomEvent",
+        "rentGrowth",
+        "salaryGrowth",
+        "target"
+      ];
+
+      var ui = {
+        en: {
+          loadingTitle: "Loading the quiz...",
+          loadingNote: "If this message stays here, refresh the page in Chrome or Safari.",
+          introEyebrow: "Interactive university-style quiz",
+          introTitle: "Can a Hong Kong young adult realistically buy a home alone?",
+          introBody: "This simulation follows one person, one decision at a time. It estimates salary, rent pressure, inflation, and life shocks before testing whether a down payment is realistically achievable.",
+          tag1: "Single HTML file",
+          tag2: "Local browser safe",
+          tag3: "Question-by-question",
+          langTitle: "Choose your language",
+          langBody: "Pick a language before entering the quiz. The questions, financial labels, and final result will switch together.",
+          langEn: "English",
+          langEnDesc: "English interface and quiz text",
+          langZh: "繁體中文",
+          langZhDesc: "繁體中文介面與題目",
+          startQuiz: "Start quiz",
+          progressLabel: "Question ",
+          progressJoiner: " of ",
+          progressDone: "% complete",
+          questionEyebrow: "Housing affordability simulation",
+          hint: "Select one option. The quiz will continue automatically.",
+          resultEyebrow: "Final financial result",
+          resultBody: "This projection combines rent growth, inflation, career uncertainty, and unexpected life costs using the choices you made in the quiz.",
+          yearsNotReachable: "Not reachable",
+          yearsSuffix: " years",
+          resultHeadlineBad: "The numbers fail to support solo home ownership.",
+          resultHeadlineGood: "Even in a relatively optimistic path, buying alone stays difficult.",
+          conclusion: "Most Hong Kong youth cannot realistically buy property alone",
+          remainingMoney: "Remaining money after 15 years",
+          yearsNeeded: "Years needed for down payment",
+          downPaymentTarget: "Down payment target",
+          latestAnnualBalance: "Latest annual balance",
+          startMonthlySalary: "Estimated starting monthly salary",
+          targetFlatPrice: "Target flat price",
+          eventBurden: "Total random life-event burden",
+          savings5: "Projected savings after 5 years",
+          savings10: "Projected savings after 10 years",
+          savings15: "Projected savings after 15 years",
+          restart: "Try another path",
+          review: "Review choices",
+          changeLanguage: "Change language",
+          impactSalary: "Salary ",
+          perMonth: "/mo",
+          riskCost: " risk cost",
+          socialPressure: " social pressure",
+          flatLabel: " flat",
+          downPaymentLabel: " down payment",
+          shockLabel: " shock",
+          rentIncreaseLabel: " rent increase / year",
+          chanceOf: "% chance of +",
+          noExtraCut: "No extra forced cut",
+          cutSpend: "Cut +",
+          spendSuffix: "/mo spending"
+        },
+        zh: {
+          loadingTitle: "正在載入問卷...",
+          loadingNote: "如果這段訊息一直停留，請用 Chrome 或 Safari 重新整理。",
+          introEyebrow: "互動式課堂模擬",
+          introTitle: "香港青年靠自己，現實上買得到樓嗎？",
+          introBody: "這個模擬會一步一步帶你做選擇，估算收入、租金壓力、通脹與突發事件，最後測試你是否真的有能力存到首期。",
+          tag1: "單一 HTML 檔",
+          tag2: "可直接本機開啟",
+          tag3: "逐題作答",
+          langTitle: "選擇語言",
+          langBody: "先選語言再進入問卷。題目、金額標示與結果頁都會一起切換。",
+          langEn: "English",
+          langEnDesc: "使用英文介面與題目",
+          langZh: "繁體中文",
+          langZhDesc: "使用繁體中文介面與題目",
+          startQuiz: "開始問卷",
+          progressLabel: "第 ",
+          progressJoiner: " / ",
+          progressDone: "% 完成",
+          questionEyebrow: "住屋負擔模擬",
+          hint: "請選一個選項，系統會自動跳到下一題。",
+          resultEyebrow: "最終財務結果",
+          resultBody: "這個推算結合了租金升幅、通脹、職涯不確定性和突發生活成本，根據你剛才的選擇計算結果。",
+          yearsNotReachable: "無法達成",
+          yearsSuffix: " 年",
+          resultHeadlineBad: "從數字來看，你幾乎無法靠自己完成置業。",
+          resultHeadlineGood: "即使在較樂觀的路線下，單人買樓依然十分困難。",
+          conclusion: "大多數香港年輕人都不可能靠自己現實地買到物業",
+          remainingMoney: "15 年後剩餘資金",
+          yearsNeeded: "存到首期所需年數",
+          downPaymentTarget: "首期目標",
+          latestAnnualBalance: "最後一年收支",
+          startMonthlySalary: "起始月薪估算",
+          targetFlatPrice: "目標單位價格",
+          eventBurden: "突發事件總負擔",
+          savings5: "第 5 年累積儲蓄",
+          savings10: "第 10 年累積儲蓄",
+          savings15: "第 15 年累積儲蓄",
+          restart: "重玩另一條路線",
+          review: "返回題目",
+          changeLanguage: "重新選擇語言",
+          impactSalary: "月薪 ",
+          perMonth: "/月",
+          riskCost: " 風險成本",
+          socialPressure: " 社交壓力",
+          flatLabel: " 單位",
+          downPaymentLabel: " 首期",
+          shockLabel: " 突發支出",
+          rentIncreaseLabel: " 年租金升幅",
+          chanceOf: "% 機率加薪 +",
+          noExtraCut: "沒有額外強迫節流",
+          cutSpend: "額外削減 ",
+          spendSuffix: "/月開支"
+        }
+      };
+
+      var questionSets = {
+        en: {
+          age: {
+            title: "How old are you right now?",
+            subtitle: "Age shapes early-career income in the simulation.",
+            options: [
+              { label: "18-22", desc: "Student or fresh graduate starting low.", value: "18-22", salary: 16000 },
+              { label: "23-26", desc: "Entry-level worker under typical market pay.", value: "23-26", salary: 22000 },
+              { label: "27-30", desc: "A few years in, but still far from luxury pay.", value: "27-30", salary: 29000 },
+              { label: "31-35", desc: "Mid-career, but housing prices have also moved.", value: "31-35", salary: 36000 }
+            ]
+          },
+          job: {
+            title: "What best describes your job situation?",
+            subtitle: "Work stability changes both monthly cash flow and long-term risk.",
+            options: [
+              { label: "Full-time stable", desc: "Regular salary, but not enough to outrun housing prices.", value: "stable", salaryMultiplier: 1, expenseDelta: 0 },
+              { label: "Freelance / gig work", desc: "Some high months, some weak months.", value: "freelance", salaryMultiplier: 0.88, expenseDelta: 1200 },
+              { label: "Unstable / contract-based", desc: "Income interruptions and reduced savings capacity.", value: "unstable", salaryMultiplier: 0.72, expenseDelta: 2200 }
+            ]
+          },
+          relationship: {
+            title: "What is your relationship status?",
+            subtitle: "The model still tests whether you can buy under your own income alone, but relationship status changes monthly spending pressure.",
+            options: [
+              { label: "Single", desc: "No partner support and no extra couple-related spending.", value: "single", socialDelta: 0 },
+              { label: "Dating", desc: "More social spending, but the purchase is still calculated on your income only.", value: "dating", socialDelta: 1800 },
+              { label: "Married", desc: "Household pressure rises, but this quiz still tests solo affordability rather than joint purchase.", value: "married", socialDelta: 3200 }
+            ]
+          },
+          flat: {
+            title: "What kind of flat would you want to buy?",
+            subtitle: "Target property size determines price and down payment burden.",
+            options: [
+              { label: "Nano flat", desc: "Around 220 sq ft. Smallest realistic private option.", value: "nano", price: 3800000, downPaymentRate: 0.1 },
+              { label: "400 sq ft flat", desc: "A basic one-bedroom or starter home.", value: "starter", price: 6200000, downPaymentRate: 0.1 },
+              { label: "Family flat", desc: "Enough space for children or caregiving.", value: "family", price: 9800000, downPaymentRate: 0.15 }
+            ]
+          },
+          rent: {
+            title: "Where are you renting while trying to save?",
+            subtitle: "Monthly rent is the first wall most young adults hit.",
+            options: [
+              { label: "Shared room", desc: "Crowded but cheaper.", value: "shared", monthly: 6500 },
+              { label: "Tiny studio", desc: "Private but expensive for one person.", value: "studio", monthly: 9800 },
+              { label: "Decent one-bedroom", desc: "Normal by global standards, costly in Hong Kong.", value: "onebed", monthly: 14500 }
+            ]
+          },
+          food: {
+            title: "What is your food lifestyle?",
+            subtitle: "Even basic eating habits materially affect saving speed.",
+            options: [
+              { label: "Budget meals", desc: "Mostly cha chaan teng, meal prep, little delivery.", value: "budget", monthly: 3200 },
+              { label: "Mixed lifestyle", desc: "Some coffee, some delivery, some dining out.", value: "mixed", monthly: 4800 },
+              { label: "More convenient / social", desc: "Regular takeaway and weekend dining.", value: "social", monthly: 6900 }
+            ]
+          },
+          transport: {
+            title: "How do you commute?",
+            subtitle: "Small recurring costs accumulate across the full saving journey.",
+            options: [
+              { label: "Mostly MTR / bus", desc: "Normal city commuting.", value: "public", monthly: 900 },
+              { label: "Long cross-district commute", desc: "Transport adds up fast.", value: "long", monthly: 1500 },
+              { label: "Taxi / ride-hailing often", desc: "Convenient, but weakens savings heavily.", value: "premium", monthly: 3200 }
+            ]
+          },
+          social: {
+            title: "What does your social life cost each month?",
+            subtitle: "This includes birthdays, dinners, short trips, and basic leisure.",
+            options: [
+              { label: "Minimal", desc: "Very disciplined, low leisure spending.", value: "low", monthly: 1200 },
+              { label: "Average", desc: "A normal social life in the city.", value: "average", monthly: 2800 },
+              { label: "Active", desc: "Frequent gatherings and paid activities.", value: "active", monthly: 5000 }
+            ]
+          },
+          familySupport: {
+            title: "Do you support family members financially?",
+            subtitle: "Many young adults cannot save freely because income flows back home.",
+            options: [
+              { label: "No regular support", desc: "You keep your income for yourself.", value: "none", monthly: 0 },
+              { label: "Some support", desc: "Helping with parents or siblings every month.", value: "some", monthly: 3000 },
+              { label: "Major support", desc: "Your household depends on your income.", value: "major", monthly: 6000 }
+            ]
+          },
+          insurance: {
+            title: "How much do insurance and medical costs take?",
+            subtitle: "A realistic budget must include health-related protection.",
+            options: [
+              { label: "Basic only", desc: "Minimal policy coverage.", value: "basic", monthly: 800 },
+              { label: "Typical private coverage", desc: "Common level for urban professionals.", value: "normal", monthly: 1800 },
+              { label: "Higher protection", desc: "Safer, but much harder to save.", value: "high", monthly: 3200 }
+            ]
+          },
+          randomEvent: {
+            title: "How exposed are you to unexpected life shocks?",
+            subtitle: "A single family or medical event can wipe out months of savings.",
+            options: [
+              { label: "Low risk", desc: "You have fewer dependents and lower exposure.", value: "low", eventChance: 0.18, eventCost: 22000 },
+              { label: "Moderate risk", desc: "A realistic middle case for many households.", value: "moderate", eventChance: 0.35, eventCost: 45000 },
+              { label: "High risk", desc: "Caregiving or health uncertainty makes saving fragile.", value: "high", eventChance: 0.52, eventCost: 80000 }
+            ]
+          },
+          rentGrowth: {
+            title: "What annual rent increase should we simulate?",
+            subtitle: "Choose how aggressively your landlord raises costs.",
+            options: [
+              { label: "3% per year", desc: "Best-case mild increase.", value: "3", rate: 0.03 },
+              { label: "5% per year", desc: "A realistic medium scenario.", value: "5", rate: 0.05 },
+              { label: "8% per year", desc: "High pressure housing market.", value: "8", rate: 0.08 }
+            ]
+          },
+          salaryGrowth: {
+            title: "How likely is decent salary growth?",
+            subtitle: "Career progression exists, but not everyone receives it on time.",
+            options: [
+              { label: "Low probability", desc: "Raises are limited and inconsistent.", value: "low", probability: 0.25, raise: 0.03 },
+              { label: "Medium probability", desc: "Some annual progress, still modest.", value: "medium", probability: 0.5, raise: 0.045 },
+              { label: "High probability", desc: "Optimistic career path.", value: "high", probability: 0.72, raise: 0.06 }
+            ]
+          },
+          target: {
+            title: "How aggressively do you want to save for a down payment?",
+            subtitle: "This is not free money. It means how much extra spending you force yourself to cut every month.",
+            options: [
+              { label: "Save whatever is left", desc: "Normal survival mode with no additional forced cuts.", value: "normal", savingsBoost: 0 },
+              { label: "Extreme cutbacks", desc: "You deliberately cut another HK$1,800 from lifestyle spending each month.", value: "aggressive", savingsBoost: 1800 },
+              { label: "Maximum austerity", desc: "You force another HK$3,200 of monthly cuts, with clear quality-of-life sacrifice.", value: "brutal", savingsBoost: 3200 }
+            ]
+          }
+        },
+        zh: {
+          age: {
+            title: "你現在屬於哪個年齡層？",
+            subtitle: "年齡會影響模擬中的起始薪金。",
+            options: [
+              { label: "18-22 歲", desc: "學生或剛畢業，通常由較低人工開始。", value: "18-22", salary: 16000 },
+              { label: "23-26 歲", desc: "職場初段，收入接近一般市場水平。", value: "23-26", salary: 22000 },
+              { label: "27-30 歲", desc: "做了幾年，但距離高薪仍然很遠。", value: "27-30", salary: 29000 },
+              { label: "31-35 歲", desc: "進入中段職涯，但樓價亦早已上升。", value: "31-35", salary: 36000 }
+            ]
+          },
+          job: {
+            title: "你的工作狀態最接近哪一種？",
+            subtitle: "工作穩定性會同時影響現金流與長期風險。",
+            options: [
+              { label: "全職穩定", desc: "每月固定出糧，但未必追得到樓價。", value: "stable", salaryMultiplier: 1, expenseDelta: 0 },
+              { label: "Freelance / 接案", desc: "有些月份較好，有些月份明顯偏弱。", value: "freelance", salaryMultiplier: 0.88, expenseDelta: 1200 },
+              { label: "不穩定 / 合約制", desc: "收入中斷風險較高，儲錢能力更脆弱。", value: "unstable", salaryMultiplier: 0.72, expenseDelta: 2200 }
+            ]
+          },
+          relationship: {
+            title: "你的感情狀態是？",
+            subtitle: "這個模型仍然以你一個人的收入測試是否買得起樓，但關係狀態會改變每月開支壓力。",
+            options: [
+              { label: "單身", desc: "沒有伴侶支援，也沒有額外的伴侶相關開支。", value: "single", socialDelta: 0 },
+              { label: "拍拖中", desc: "社交支出增加，但買樓能力仍只按你個人收入計。", value: "dating", socialDelta: 1800 },
+              { label: "已婚", desc: "家庭壓力上升，但本問卷仍測試單人負擔能力，而不是雙人聯名。", value: "married", socialDelta: 3200 }
+            ]
+          },
+          flat: {
+            title: "你想買哪一類型的單位？",
+            subtitle: "目標面積會直接決定總價與首期壓力。",
+            options: [
+              { label: "納米樓", desc: "約 220 呎，屬於最小型的私人住宅選項。", value: "nano", price: 3800000, downPaymentRate: 0.1 },
+              { label: "約 400 呎單位", desc: "基本一房或入門自住盤。", value: "starter", price: 6200000, downPaymentRate: 0.1 },
+              { label: "家庭單位", desc: "較適合有小朋友或照顧家庭需要。", value: "family", price: 9800000, downPaymentRate: 0.15 }
+            ]
+          },
+          rent: {
+            title: "你在儲首期期間會租住哪一類地方？",
+            subtitle: "月租往往是年輕人最先撞上的現實高牆。",
+            options: [
+              { label: "分租房 / 劏房床位", desc: "環境擠迫，但相對便宜。", value: "shared", monthly: 6500 },
+              { label: "小型獨立套房", desc: "有私隱，但一個人負擔很重。", value: "studio", monthly: 9800 },
+              { label: "像樣一房", desc: "以國際標準算普通，在香港仍十分昂貴。", value: "onebed", monthly: 14500 }
+            ]
+          },
+          food: {
+            title: "你的飲食模式最接近哪一種？",
+            subtitle: "即使只是基本吃飯習慣，也會明顯影響儲錢速度。",
+            options: [
+              { label: "節省型", desc: "主要茶餐廳、自己準備食物，很少叫外賣。", value: "budget", monthly: 3200 },
+              { label: "中間型", desc: "偶爾咖啡、外賣與外出吃飯。", value: "mixed", monthly: 4800 },
+              { label: "較方便 / 較社交", desc: "常叫外賣，週末亦會外出聚餐。", value: "social", monthly: 6900 }
+            ]
+          },
+          transport: {
+            title: "你平日如何通勤？",
+            subtitle: "看似小額的固定開支，拉長年期後會累積得很快。",
+            options: [
+              { label: "主要搭 MTR / 巴士", desc: "一般城市上班模式。", value: "public", monthly: 900 },
+              { label: "跨區長途通勤", desc: "交通費會比想像中更快堆高。", value: "long", monthly: 1500 },
+              { label: "經常搭的士 / 網約車", desc: "較方便，但會大幅削弱儲蓄。", value: "premium", monthly: 3200 }
+            ]
+          },
+          social: {
+            title: "你的社交生活每月大概花多少？",
+            subtitle: "這裡包括生日飯、聚餐、短途活動和基本娛樂。",
+            options: [
+              { label: "極低", desc: "非常克制，娛樂支出很少。", value: "low", monthly: 1200 },
+              { label: "一般", desc: "接近普通城市青年生活。", value: "average", monthly: 2800 },
+              { label: "活躍", desc: "聚會頻繁，亦常參加收費活動。", value: "active", monthly: 5000 }
+            ]
+          },
+          familySupport: {
+            title: "你需要定期供養家人嗎？",
+            subtitle: "很多年輕人無法自由儲錢，因為收入必須回流家庭。",
+            options: [
+              { label: "不需要", desc: "收入主要留作自己生活與儲蓄。", value: "none", monthly: 0 },
+              { label: "有一部分", desc: "每月需要支援父母或兄弟姊妹。", value: "some", monthly: 3000 },
+              { label: "負擔很重", desc: "家庭日常相當依賴你的收入。", value: "major", monthly: 6000 }
+            ]
+          },
+          insurance: {
+            title: "保險與醫療相關支出大概是多少？",
+            subtitle: "現實預算不能忽略健康保障成本。",
+            options: [
+              { label: "基本保障", desc: "只買最低限度的保障。", value: "basic", monthly: 800 },
+              { label: "一般私人保障", desc: "都市上班族常見水平。", value: "normal", monthly: 1800 },
+              { label: "較高保障", desc: "較安全，但更難儲到首期。", value: "high", monthly: 3200 }
+            ]
+          },
+          randomEvent: {
+            title: "你面對突發生活事件的風險有多高？",
+            subtitle: "一次醫療或家庭事故，就可能吃掉幾個月甚至一年的儲蓄。",
+            options: [
+              { label: "低風險", desc: "供養責任較少，整體暴露較低。", value: "low", eventChance: 0.18, eventCost: 22000 },
+              { label: "中等風險", desc: "很多家庭都接近這種現實狀況。", value: "moderate", eventChance: 0.35, eventCost: 45000 },
+              { label: "高風險", desc: "照顧家人或健康不確定性令儲蓄非常脆弱。", value: "high", eventChance: 0.52, eventCost: 80000 }
+            ]
+          },
+          rentGrowth: {
+            title: "你想模擬每年租金升幅是多少？",
+            subtitle: "選擇房東每年加租的壓力程度。",
+            options: [
+              { label: "每年 3%", desc: "相對溫和的樂觀情況。", value: "3", rate: 0.03 },
+              { label: "每年 5%", desc: "較接近現實中的中間情況。", value: "5", rate: 0.05 },
+              { label: "每年 8%", desc: "租務市場壓力較大的情況。", value: "8", rate: 0.08 }
+            ]
+          },
+          salaryGrowth: {
+            title: "你覺得自己獲得明顯加薪的機率有多高？",
+            subtitle: "職涯會有進步，但不是每個人都能按時得到明顯升幅。",
+            options: [
+              { label: "偏低", desc: "加薪有限，而且並不穩定。", value: "low", probability: 0.25, raise: 0.03 },
+              { label: "中等", desc: "每年有些進步，但幅度仍然有限。", value: "medium", probability: 0.5, raise: 0.045 },
+              { label: "偏高", desc: "屬於較樂觀的職涯路線。", value: "high", probability: 0.72, raise: 0.06 }
+            ]
+          },
+          target: {
+            title: "你願意把生活壓縮到什麼程度去儲首期？",
+            subtitle: "這不是憑空多出來的錢，而是你每月願意再削減多少生活開支。",
+            options: [
+              { label: "有剩就儲", desc: "一般生存模式，不再額外逼自己節流。", value: "normal", savingsBoost: 0 },
+              { label: "極端節省", desc: "你每月再額外壓縮 HK$1,800 的生活支出。", value: "aggressive", savingsBoost: 1800 },
+              { label: "最大限度節流", desc: "你每月再強行壓縮 HK$3,200，生活質素明顯受影響。", value: "brutal", savingsBoost: 3200 }
+            ]
+          }
+        }
+      };
+
+      function currentLang() {
+        return state.language || "en";
+      }
+
+      function t() {
+        return ui[currentLang()];
+      }
+
+      function currentQuestions() {
+        return questionSets[currentLang()];
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function money(value) {
+        var rounded = Math.round(value);
+        var sign = rounded < 0 ? "-" : "";
+        var number = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return sign + "HK$" + number;
+      }
+
+      function compactMoney(value) {
+        if (value >= 1000000) {
+          return "HK$" + (value / 1000000).toFixed(value % 1000000 === 0 ? 1 : 2) + "M";
+        }
+        if (value >= 1000) {
+          return "HK$" + Math.round(value / 100) / 10 + "K";
+        }
+        return money(value);
+      }
+
+      function updateUrlLanguage(lang) {
+        try {
+          var url = new URL(window.location.href);
+          url.searchParams.set("lang", lang);
+          window.history.replaceState({}, "", url.toString());
+        } catch (error) {
+          return;
+        }
+      }
+
+      function setLanguage(lang) {
+        state.language = lang;
+        state.step = -1;
+        state.answers = {};
+        document.documentElement.lang = lang === "zh" ? "zh-Hant" : "en";
+        updateUrlLanguage(lang);
+      }
+
+      function impactText(key, option) {
+        var langText = t();
+        if (key === "age") {
+          return langText.impactSalary + money(option.salary) + langText.perMonth;
+        }
+        if (key === "job") {
+          var pct = Math.round(option.salaryMultiplier * 100);
+          return pct + "% salary, +" + money(option.expenseDelta) + langText.perMonth + langText.riskCost;
+        }
+        if (key === "relationship") {
+          return "+" + money(option.socialDelta) + langText.perMonth + langText.socialPressure;
+        }
+        if (key === "flat") {
+          return compactMoney(option.price) + langText.flatLabel + ", " + money(option.price * option.downPaymentRate) + langText.downPaymentLabel;
+        }
+        if (key === "rent" || key === "food" || key === "transport" || key === "social" || key === "familySupport" || key === "insurance") {
+          return money(option.monthly) + langText.perMonth;
+        }
+        if (key === "randomEvent") {
+          return Math.round(option.eventChance * 100) + "% risk, " + money(option.eventCost) + langText.shockLabel;
+        }
+        if (key === "rentGrowth") {
+          return Math.round(option.rate * 100) + "%" + langText.rentIncreaseLabel;
+        }
+        if (key === "salaryGrowth") {
+          return Math.round(option.probability * 100) + langText.chanceOf + (option.raise * 100).toFixed(1) + "% / year";
+        }
+        if (key === "target") {
+          return option.savingsBoost > 0 ? langText.cutSpend + money(option.savingsBoost) + langText.spendSuffix : langText.noExtraCut;
+        }
+        return "";
+      }
+
+      function mulberry32(seed) {
+        return function () {
+          var tSeed = seed += 0x6D2B79F5;
+          tSeed = Math.imul(tSeed ^ tSeed >>> 15, tSeed | 1);
+          tSeed ^= tSeed + Math.imul(tSeed ^ tSeed >>> 7, tSeed | 61);
+          return ((tSeed ^ tSeed >>> 14) >>> 0) / 4294967296;
+        };
+      }
+
+      function buildSeed() {
+        var raw = JSON.stringify(state.answers);
+        var seed = 0;
+        for (var i = 0; i < raw.length; i += 1) {
+          seed = ((seed << 5) - seed + raw.charCodeAt(i)) | 0;
+        }
+        return Math.abs(seed) + 1;
+      }
+
+      function renderIntro() {
+        var langText = t();
+        app.innerHTML =
+          '<div class="screen">' +
+            '<div class="intro">' +
+              '<div class="eyebrow">' + escapeHtml(langText.introEyebrow) + '</div>' +
+              '<h1>' + escapeHtml(langText.introTitle) + '</h1>' +
+              '<p>' + escapeHtml(langText.introBody) + '</p>' +
+              '<div class="meta">' +
+                '<span class="tag">' + escapeHtml(langText.tag1) + '</span>' +
+                '<span class="tag">' + escapeHtml(langText.tag2) + '</span>' +
+                '<span class="tag">' + escapeHtml(langText.tag3) + '</span>' +
+              '</div>' +
+              '<div class="actions">' +
+                '<h2 style="font-size:22px; margin-bottom:10px;">' + escapeHtml(langText.langTitle) + '</h2>' +
+                '<p>' + escapeHtml(langText.langBody) + '</p>' +
+                '<div class="lang-grid">' +
+                  '<button class="lang-btn" type="button" data-lang="zh"><strong>' + escapeHtml(langText.langZh) + '</strong><span>' + escapeHtml(langText.langZhDesc) + '</span></button>' +
+                  '<button class="lang-btn" type="button" data-lang="en"><strong>' + escapeHtml(langText.langEn) + '</strong><span>' + escapeHtml(langText.langEnDesc) + '</span></button>' +
+                '</div>' +
+                '<div class="small-note">' + escapeHtml("URL language param supported: ?lang=zh or ?lang=en") + '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        Array.prototype.forEach.call(app.querySelectorAll(".lang-btn"), function (button) {
+          button.addEventListener("click", function () {
+            setLanguage(button.getAttribute("data-lang"));
+            state.step = 0;
+            renderQuestion(true);
+          });
+        });
+      }
+
+      function renderQuestion(skipAnimation) {
+        var questions = currentQuestions();
+        var langText = t();
+        var key = questionOrder[state.step];
+        var question = questions[key];
+        if (!question) {
+          renderResult();
+          return;
+        }
+
+        var progress = ((state.step + 1) / questionOrder.length) * 100;
+        var progressLeft = currentLang() === "zh"
+          ? langText.progressLabel + (state.step + 1) + langText.progressJoiner + questionOrder.length
+          : langText.progressLabel + (state.step + 1) + langText.progressJoiner + questionOrder.length;
+
+        var optionsHtml = question.options.map(function (option, index) {
+          var impact = impactText(key, option);
+          return '' +
+            '<button class="option" type="button" data-index="' + index + '">' +
+              '<span class="option-title">' + escapeHtml(option.label) + '</span>' +
+              '<span class="option-impact">' + escapeHtml(impact) + '</span>' +
+              '<span class="option-desc">' + escapeHtml(option.desc) + '</span>' +
+            '</button>';
+        }).join("");
+
+        app.innerHTML =
+          '<div class="screen' + (skipAnimation ? "" : " fade-out") + '" id="screen">' +
+            '<div class="progress-wrap">' +
+              '<div class="progress-top">' +
+                '<span>' + escapeHtml(progressLeft) + '</span>' +
+                '<span>' + Math.round(progress) + escapeHtml(langText.progressDone) + '</span>' +
+              '</div>' +
+              '<div class="progress-bar"><span style="width:' + progress + '%"></span></div>' +
+            '</div>' +
+            '<div class="question-copy">' +
+              '<div class="eyebrow">' + escapeHtml(langText.questionEyebrow) + '</div>' +
+              '<h2>' + escapeHtml(question.title) + '</h2>' +
+              '<p>' + escapeHtml(question.subtitle) + '</p>' +
+            '</div>' +
+            '<div class="options">' + optionsHtml + '</div>' +
+            '<div class="hint">' + escapeHtml(langText.hint) + '</div>' +
+          '</div>';
+
+        var screen = document.getElementById("screen");
+        if (!skipAnimation) {
+          window.requestAnimationFrame(function () {
+            screen.classList.remove("fade-out");
+          });
+        }
+
+        Array.prototype.forEach.call(app.querySelectorAll(".option"), function (button) {
+          button.addEventListener("click", function () {
+            var optionIndex = Number(button.getAttribute("data-index"));
+            state.answers[key] = question.options[optionIndex];
+            advance();
+          });
+        });
+      }
+
+      function advance() {
+        var currentScreen = document.getElementById("screen");
+        if (currentScreen) {
+          currentScreen.classList.add("fade-out");
+        }
+
+        window.setTimeout(function () {
+          state.step += 1;
+          if (state.step >= questionOrder.length) {
+            renderResult();
+          } else {
+            renderQuestion(true);
+          }
+        }, 200);
+      }
+
+      function simulate() {
+        var a = state.answers;
+        var baseMonthlySalary = a.age.salary * a.job.salaryMultiplier;
+        var monthlyRent = a.rent.monthly;
+        var monthlyFood = a.food.monthly;
+        var monthlyTransport = a.transport.monthly;
+        var monthlySocial = a.social.monthly + a.relationship.socialDelta;
+        var monthlyFamilySupport = a.familySupport.monthly;
+        var monthlyInsurance = a.insurance.monthly;
+        var jobInstabilityCost = a.job.expenseDelta;
+        var essentialInflationRate = 0.04;
+        var savingsBoost = a.target.savingsBoost;
+        var downPaymentTarget = a.flat.price * a.flat.downPaymentRate;
+        var years = 15;
+        var rng = mulberry32(buildSeed());
+        var totalSavings = 0;
+        var history = [];
+        var salary = baseMonthlySalary * 12;
+        var baseNonHousingAnnual = (monthlyFood + monthlyTransport + monthlySocial + monthlyFamilySupport + monthlyInsurance + jobInstabilityCost) * 12;
+        var rentAnnual = monthlyRent * 12;
+        var rentMultiplier = 1;
+        var achievedYear = null;
+        var eventBurden = 0;
+
+        for (var year = 1; year <= years; year += 1) {
+          if (year > 1) {
+            if (rng() < a.salaryGrowth.probability) {
+              salary *= (1 + a.salaryGrowth.raise);
+            } else {
+              salary *= 1.01;
+            }
+            rentMultiplier *= (1 + a.rentGrowth.rate);
+          }
+
+          var essentialsMultiplier = Math.pow(1 + essentialInflationRate, year - 1);
+          var livingCost = (baseNonHousingAnnual * essentialsMultiplier) + (rentAnnual * rentMultiplier);
+          var austeritySavings = savingsBoost * 12;
+          var eventCost = 0;
+
+          if (rng() < a.randomEvent.eventChance) {
+            eventCost = a.randomEvent.eventCost * (0.9 + rng() * 0.4);
+            eventBurden += eventCost;
+          }
+
+          var annualNet = salary - livingCost - eventCost + austeritySavings;
+          totalSavings += annualNet;
+
+          if (achievedYear === null && totalSavings >= downPaymentTarget) {
+            achievedYear = year;
+          }
+
+          history.push({
+            year: year,
+            salary: salary,
+            livingCost: livingCost,
+            eventCost: eventCost,
+            annualNet: annualNet,
+            savings: totalSavings
+          });
+        }
+
+        var finalYear = history[history.length - 1];
+        var yearsNeeded;
+        if (achievedYear !== null) {
+          yearsNeeded = achievedYear;
+        } else {
+          var averageAnnualNet = totalSavings / years;
+          if (averageAnnualNet <= 0) {
+            yearsNeeded = Infinity;
+          } else {
+            yearsNeeded = Math.ceil(downPaymentTarget / averageAnnualNet);
+          }
+        }
+
+        return {
+          monthlySalary: baseMonthlySalary,
+          targetPrice: a.flat.price,
+          downPaymentTarget: downPaymentTarget,
+          finalSavings: finalYear.savings,
+          finalAnnualNet: finalYear.annualNet,
+          totalEventBurden: eventBurden,
+          yearsNeeded: yearsNeeded,
+          history: history
+        };
+      }
+
+      function renderResult() {
+        var langText = t();
+        var result = simulate();
+        var yearsText = result.yearsNeeded === Infinity ? langText.yearsNotReachable : result.yearsNeeded + langText.yearsSuffix;
+        var statusClass = result.finalSavings >= 0 ? "positive" : "negative";
+        var realistic = result.yearsNeeded === Infinity || result.yearsNeeded > 12 || result.finalSavings < result.downPaymentTarget;
+        var headline = realistic ? langText.resultHeadlineBad : langText.resultHeadlineGood;
+        var latest = result.history[result.history.length - 1];
+
+        app.innerHTML =
+          '<div class="screen" id="screen">' +
+            '<div class="eyebrow">' + escapeHtml(langText.resultEyebrow) + '</div>' +
+            '<h2>' + escapeHtml(headline) + '</h2>' +
+            '<p>' + escapeHtml(langText.resultBody) + '</p>' +
+            '<div class="result-grid">' +
+              '<div class="result-stat">' +
+                '<strong>' + escapeHtml(langText.remainingMoney) + '</strong>' +
+                '<span class="' + statusClass + '">' + money(result.finalSavings) + '</span>' +
+              '</div>' +
+              '<div class="result-stat">' +
+                '<strong>' + escapeHtml(langText.yearsNeeded) + '</strong>' +
+                '<span>' + escapeHtml(yearsText) + '</span>' +
+              '</div>' +
+              '<div class="result-stat">' +
+                '<strong>' + escapeHtml(langText.downPaymentTarget) + '</strong>' +
+                '<span>' + money(result.downPaymentTarget) + '</span>' +
+              '</div>' +
+              '<div class="result-stat">' +
+                '<strong>' + escapeHtml(langText.latestAnnualBalance) + '</strong>' +
+                '<span class="' + (latest.annualNet >= 0 ? "positive" : "negative") + '">' + money(latest.annualNet) + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="summary">' + escapeHtml(langText.conclusion) + '</div>' +
+            '<div class="list">' +
+              '<div class="list-item"><span>' + escapeHtml(langText.startMonthlySalary) + '</span><b>' + money(result.monthlySalary) + '</b></div>' +
+              '<div class="list-item"><span>' + escapeHtml(langText.targetFlatPrice) + '</span><b>' + money(result.targetPrice) + '</b></div>' +
+              '<div class="list-item"><span>' + escapeHtml(langText.eventBurden) + '</span><b>' + money(result.totalEventBurden) + '</b></div>' +
+              '<div class="list-item"><span>' + escapeHtml(langText.savings5) + '</span><b>' + money(result.history[4].savings) + '</b></div>' +
+              '<div class="list-item"><span>' + escapeHtml(langText.savings10) + '</span><b>' + money(result.history[9].savings) + '</b></div>' +
+              '<div class="list-item"><span>' + escapeHtml(langText.savings15) + '</span><b>' + money(result.history[14].savings) + '</b></div>' +
+            '</div>' +
+            '<div class="footer-actions">' +
+              '<button class="primary-btn" type="button" id="restartQuiz">' + escapeHtml(langText.restart) + '</button>' +
+              '<button class="ghost-btn" type="button" id="reviewQuiz">' + escapeHtml(langText.review) + '</button>' +
+              '<button class="ghost-btn" type="button" id="changeLanguage">' + escapeHtml(langText.changeLanguage) + '</button>' +
+            '</div>' +
+          '</div>';
+
+        document.getElementById("restartQuiz").addEventListener("click", function () {
+          state.step = 0;
+          state.answers = {};
+          renderQuestion(true);
+        });
+
+        document.getElementById("reviewQuiz").addEventListener("click", function () {
+          state.step = 0;
+          renderQuestion(true);
+        });
+
+        document.getElementById("changeLanguage").addEventListener("click", function () {
+          state.step = -1;
+          state.answers = {};
+          renderIntro();
+        });
+      }
+
+      if (!state.language) {
+        setLanguage("zh");
+        state.language = "";
+      } else {
+        document.documentElement.lang = state.language === "zh" ? "zh-Hant" : "en";
+      }
+
+      renderIntro();
+      state.ready = true;
+    }());
+  </script>
+</body>
+</html>
