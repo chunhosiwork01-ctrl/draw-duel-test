@@ -1,67 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hong Kong Housing Reality Quiz</title>
+  <title>樓價戀愛實驗</title>
   <meta http-equiv="refresh" content="0; url=./hk_survival.html">
-  <style>
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      background: #0b0f14;
-      color: #edf2f7;
-    }
-
-    body {
-      display: grid;
-      place-items: center;
-      padding: 24px;
-    }
-
-    .card {
-      width: min(100%, 640px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 24px;
-      background: rgba(18, 25, 34, 0.92);
-      padding: 28px;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-    }
-
-    h1 {
-      margin: 0 0 10px;
-      font-size: clamp(28px, 4vw, 40px);
-      line-height: 1.15;
-    }
-
-    p {
-      margin: 0 0 12px;
-      color: #9aa7b7;
-      line-height: 1.6;
-    }
-
-    a {
-      color: #f2c06c;
-    }
-  </style>
 </head>
 <body>
-  <main class="card">
-    <h1>Redirecting to the quiz...</h1>
-    <p>If you are not redirected automatically, open <a id="fallbackLink" href="./hk_survival.html">hk_survival.html</a>.</p>
-    <p>如果頁面沒有自動跳轉，請手動打開上方連結。</p>
-  </main>
-
+  <p><a href="./hk_survival.html">Open the game</a></p>
   <script>
-    (function () {
-      var target = "./hk_survival.html" + window.location.search + window.location.hash;
-      var link = document.getElementById("fallbackLink");
-      if (link) {
-        link.href = target;
-      }
-      window.location.replace(target);
-    }());
+    window.location.replace("./hk_survival.html");
   </script>
 </body>
 </html>
