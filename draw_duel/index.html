@@ -377,12 +377,12 @@
                 <input class="input" id="playerName" maxlength="24" placeholder="例如：阿明">
               </label>
               <div class="join-grid">
-                <div class="card shell" style="background:#101722;">
+                <div class="card shell">
                   <h3>建立房間</h3>
                   <p>你會成為房主，等朋友一起加入。</p>
                   <button class="primary" id="createRoomBtn">建立新房間</button>
                 </div>
-                <div class="card shell" style="background:#101722;">
+                <div class="card shell">
                   <h3>加入房間</h3>
                   <p>輸入朋友給你的房號。</p>
                   <input class="input" id="joinCode" placeholder="房號，例如 AB12C">
@@ -735,7 +735,7 @@
               </div>
             </div>
             ${room.prompt_image ? `
-              <div class="card reference-card shell" style="background:#101722;">
+              <div class="card reference-card shell">
                 <h3>本回合參考形象</h3>
                 <p>這是本回合用來投票的標準圖片，這裡保留作最後結算時再次對照。</p>
                 <img src="${room.prompt_image}" alt="${room.prompt}">
@@ -743,7 +743,7 @@
               </div>
             ` : ""}
             ${room.stage === "finished" ? `
-              <div class="card shell" style="background:#101722;">
+              <div class="card shell">
                 <h3>最終頒獎台</h3>
                 <div class="podium">
                   ${podium.map((player, index) => `
