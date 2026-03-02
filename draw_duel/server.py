@@ -17,7 +17,7 @@ INDEX_HTML = ROOT / "index.html"
 ASSETS_DIR = ROOT / "assets"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8765"))
-TOTAL_ROUNDS = 3
+DEFAULT_TOTAL_ROUNDS = 3
 ROOM_CODE_LEN = 5
 MAX_PLAYERS = 6
 DRAWING_DURATION_SECONDS = 120
@@ -136,6 +136,18 @@ def fresh_drawing():
     return {"strokes": [], "image": "", "submitted": False}
 
 
+def build_prompt_deck(total_rounds):
+    if not PROMPTS:
+        return []
+    if total_rounds <= len(PROMPTS):
+        return random.sample(PROMPTS, k=total_rounds)
+    deck = PROMPTS[:]
+    while len(deck) < total_rounds:
+        deck.append(random.choice(PROMPTS))
+    random.shuffle(deck)
+    return deck[:total_rounds]
+
+
 def fresh_room(name):
     room_code = new_room_code()
     player_id = uuid.uuid4().hex[:8]
@@ -155,8 +167,9 @@ def fresh_room(name):
             }
         },
         "stage": "waiting",
+        "total_rounds": DEFAULT_TOTAL_ROUNDS,
         "round_index": -1,
-        "prompts": random.sample(PROMPTS, k=min(TOTAL_ROUNDS, len(PROMPTS))),
+        "prompts": build_prompt_deck(DEFAULT_TOTAL_ROUNDS),
         "current_prompt": None,
         "current_prompt_image": "",
         "current_prompt_source": "",
@@ -172,6 +185,28 @@ def fresh_room(name):
     }
     ROOMS[room_code] = room
     return room, player_id
+
+
+def reset_room_progress(room):
+    room["stage"] = "waiting"
+    room["round_index"] = -1
+    room["prompts"] = build_prompt_deck(room["total_rounds"])
+    room["current_prompt"] = None
+    room["current_prompt_image"] = ""
+    room["current_prompt_source"] = ""
+    room["current_prompt_slug"] = ""
+    room["round_started_at"] = None
+    room["round_deadline_at"] = None
+    room["vote_started_at"] = None
+    room["vote_deadline_at"] = None
+    room["votes"] = {}
+    room["round_result"] = None
+    room["final_winner_id"] = None
+    for player_id in room["players_order"]:
+        room["drawings"][player_id] = fresh_drawing()
+        room["players"][player_id]["wins"] = 0
+        room["players"][player_id]["total_score"] = 0
+        room["players"][player_id]["roast_history"] = []
 
 
 def join_room(room_code, name):
@@ -197,7 +232,7 @@ def join_room(room_code, name):
 
 def start_round(room):
     room["round_index"] += 1
-    if room["round_index"] >= TOTAL_ROUNDS:
+    if room["round_index"] >= room["total_rounds"]:
         room["stage"] = "finished"
         return
 
@@ -326,7 +361,7 @@ def finalize_round(room):
     if winner_id:
         room["players"][winner_id]["wins"] += 1
 
-    if room["round_index"] == TOTAL_ROUNDS - 1:
+    if room["round_index"] == room["total_rounds"] - 1:
         room["final_winner_id"] = max(
             room["players_order"],
             key=lambda player_id: (
@@ -354,7 +389,7 @@ def sanitize_room(room, player_id):
         "prompt_source": room.get("current_prompt_source"),
         "prompt_slug": room.get("current_prompt_slug"),
         "round_index": room["round_index"],
-        "total_rounds": TOTAL_ROUNDS,
+        "total_rounds": room["total_rounds"],
         "drawing_duration_seconds": DRAWING_DURATION_SECONDS,
         "round_started_at": room.get("round_started_at"),
         "round_deadline_at": room.get("round_deadline_at"),
@@ -367,7 +402,8 @@ def sanitize_room(room, player_id):
         "votes_cast": room["votes"].get(player_id, {}),
         "vote_target_ids": vote_target_ids(room, player_id) if room["stage"] == "voting" else [],
         "can_start": room["stage"] == "waiting" and room.get("host_id") == player_id and len(room["players_order"]) >= 2,
-        "can_next": room["stage"] == "results" and room.get("host_id") == player_id and room["round_index"] < TOTAL_ROUNDS - 1,
+        "can_next": room["stage"] == "results" and room.get("host_id") == player_id and room["round_index"] < room["total_rounds"] - 1,
+        "can_restart": room["stage"] == "finished" and room.get("host_id") == player_id,
         "room_full": len(room["players_order"]) >= MAX_PLAYERS,
         "round_result": room.get("round_result") or {},
         "final_winner_id": room.get("final_winner_id"),
@@ -469,8 +505,10 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path in {
+            "/api/room/config",
             "/api/room/start",
             "/api/room/next",
+            "/api/room/restart",
             "/api/draw/update",
             "/api/draw/submit",
             "/api/vote",
@@ -499,6 +537,20 @@ class Handler(BaseHTTPRequestHandler):
                     json_response(self, sanitize_room(room, player_id))
                     return
 
+                if parsed.path == "/api/room/config":
+                    if player_id != room["host_id"]:
+                        error_response(self, "Only the host can change settings")
+                        return
+                    if room["stage"] != "waiting":
+                        error_response(self, "Settings can only be changed before the game starts")
+                        return
+                    total_rounds = int(payload.get("total_rounds", room["total_rounds"]))
+                    total_rounds = max(1, min(9, total_rounds))
+                    room["total_rounds"] = total_rounds
+                    room["prompts"] = build_prompt_deck(total_rounds)
+                    json_response(self, sanitize_room(room, player_id))
+                    return
+
                 if parsed.path == "/api/room/next":
                     if player_id != room["host_id"]:
                         error_response(self, "Only the host can start next round")
@@ -506,10 +558,18 @@ class Handler(BaseHTTPRequestHandler):
                     if room["stage"] != "results":
                         error_response(self, "Round is not ready for next step")
                         return
-                    if room["round_index"] >= TOTAL_ROUNDS - 1:
+                    if room["round_index"] >= room["total_rounds"] - 1:
                         room["stage"] = "finished"
                     else:
                         start_round(room)
+                    json_response(self, sanitize_room(room, player_id))
+                    return
+
+                if parsed.path == "/api/room/restart":
+                    if player_id != room["host_id"]:
+                        error_response(self, "Only the host can restart")
+                        return
+                    reset_room_progress(room)
                     json_response(self, sanitize_room(room, player_id))
                     return
 
