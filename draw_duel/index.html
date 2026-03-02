@@ -441,6 +441,12 @@
             <div class="card shell">
               <h3>本回合規則</h3>
               <p>大家畫完之後，會進入全民投票。每位玩家都要對別人的作品選擇按讚或扔雞蛋，最後按全場投票直接算分。</p>
+              ${room.prompt_image ? `
+                <div class="card reference-card shell" style="background:#101722;">
+                  <h3>本回合參考圖</h3>
+                  <img src="${room.prompt_image}" alt="${room.prompt}" class="prompt-reference" data-label="${room.prompt}">
+                </div>
+              ` : ""}
               <div class="status-grid">
                 <div class="stat"><strong>你的總分</strong><span>${room.you.total_score}</span></div>
                 <div class="stat"><strong>你的勝場</strong><span>${room.you.wins}</span></div>
@@ -504,6 +510,7 @@
         }
       };
 
+      wirePromptFallbacks();
       wireCanvas();
       redrawCanvas();
     }
