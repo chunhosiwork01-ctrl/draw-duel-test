@@ -57,6 +57,8 @@
     .vote-btn.like.active { background: rgba(130,214,164,0.2); border-color: rgba(130,214,164,0.5); color: var(--good); }
     .vote-btn.egg.active { background: rgba(255,139,139,0.16); border-color: rgba(255,139,139,0.45); color: var(--bad); }
     .vote-btn:disabled { cursor: default; opacity: 0.6; }
+    .vote-btn.like.active { animation: pulseLike 0.9s ease-in-out infinite alternate; }
+    .vote-btn.egg.active { animation: pulseEgg 0.5s ease-in-out infinite alternate; }
     .vote-icon { font-size: 22px; line-height: 1; display: inline-block; }
     .vote-btn { min-width: 72px; display: inline-flex; align-items: center; justify-content: center; }
     .input, .select {
@@ -110,6 +112,14 @@
     .winner { border-color: rgba(130,214,164,0.45); box-shadow: inset 0 0 0 1px rgba(130,214,164,0.2); }
     .danger { color: var(--bad); }
     .reconnect { color: #ffd16a; }
+    @keyframes pulseLike {
+      from { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(130,214,164,0.0); }
+      to { transform: translateY(-2px) scale(1.06); box-shadow: 0 0 18px rgba(130,214,164,0.35); }
+    }
+    @keyframes pulseEgg {
+      from { transform: rotate(-6deg) scale(1); box-shadow: 0 0 0 rgba(255,139,139,0.0); }
+      to { transform: rotate(6deg) scale(1.08); box-shadow: 0 0 18px rgba(255,139,139,0.32); }
+    }
     a { color: #a9c9ff; }
     @media (max-width: 900px) {
       .hero, .join-grid, .board-grid, .results-grid, .status-grid, .podium { grid-template-columns: 1fr; }
@@ -138,9 +148,10 @@
       size: 6,
       roomState: null,
       submitted: false,
-      soundOn: false,
+      soundOn: true,
       audio: null,
       ambientTimer: null,
+      musicStep: 0,
       roundTicker: null,
       renderKey: "",
       currentStage: "",
@@ -182,10 +193,19 @@
 
     function startAmbient() {
       if (!state.soundOn || state.ambientTimer) return;
+      const motif = [
+        [523.25, 0.18, "sine", 0.022],
+        [659.25, 0.18, "sine", 0.02],
+        [783.99, 0.22, "triangle", 0.018],
+        [659.25, 0.18, "sine", 0.018],
+        [587.33, 0.22, "triangle", 0.018],
+        [523.25, 0.28, "sine", 0.02],
+      ];
       state.ambientTimer = setInterval(() => {
-        playTone(294, 0.45, "sine", 0.012);
-        setTimeout(() => playTone(392, 0.4, "sine", 0.01), 180);
-      }, 4200);
+        const note = motif[state.musicStep % motif.length];
+        state.musicStep += 1;
+        playTone(note[0], note[1], note[2], note[3]);
+      }, 360);
     }
 
     function stopAmbient() {
@@ -384,6 +404,7 @@
             method: "POST",
             body: JSON.stringify({ name: state.playerName }),
           });
+          startAmbient();
           state.roomCode = data.room_code;
           state.playerId = data.player_id;
           startPoll();
@@ -401,6 +422,7 @@
             method: "POST",
             body: JSON.stringify({ room_code: roomCode, name: state.playerName }),
           });
+          startAmbient();
           state.roomCode = data.room_code;
           state.playerId = data.player_id;
           startPoll();

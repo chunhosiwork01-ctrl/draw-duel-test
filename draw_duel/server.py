@@ -92,6 +92,8 @@ PROMPTS = [
     },
 ]
 
+PROMPTS = [prompt for prompt in PROMPTS if (ASSETS_DIR / f"{prompt['slug']}.png").is_file()]
+
 ROOMS = {}
 ROOM_LOCK = threading.Lock()
 
