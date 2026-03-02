@@ -141,6 +141,7 @@
       soundOn: false,
       audio: null,
       ambientTimer: null,
+      roundTicker: null,
       renderKey: "",
       currentStage: "",
       lastError: "",
@@ -234,6 +235,12 @@
       state.polling = null;
     }
 
+    function clearRoundTicker() {
+      if (!state.roundTicker) return;
+      clearInterval(state.roundTicker);
+      state.roundTicker = null;
+    }
+
     function startPoll() {
       clearPoll();
       loadState(true);
@@ -324,6 +331,7 @@
 
     function renderLanding(error = "") {
       clearPoll();
+      clearRoundTicker();
       state.renderKey = "";
       state.currentStage = "landing";
       app.innerHTML = `
@@ -408,6 +416,7 @@
     }
 
     function renderWaiting() {
+      clearRoundTicker();
       state.currentStage = "waiting";
       const room = state.roomState;
       app.innerHTML = `
@@ -453,6 +462,7 @@
     function renderGame() {
       state.currentStage = "drawing";
       const room = state.roomState;
+      const left = secondsLeft(room);
       app.innerHTML = `
         <div class="shell">
           <div class="card">
@@ -464,7 +474,7 @@
               <div class="toolbar-right">
                 <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
                 <div class="badge-row">
-                  <span class="badge ${secondsLeft(room) !== null && secondsLeft(room) <= 15 ? "danger" : ""}">倒數 ${timerLabel(room)}</span>
+                  <span class="badge ${left !== null && left <= 10 ? "danger" : ""}" id="roundTimerBadge">倒數 ${timerLabel(room)}</span>
                   ${room.players.map((player) => `<span class="badge">${player.name} ${room.submissions[player.id] ? "已提交" : "作畫中"}</span>`).join("")}
                 </div>
               </div>
@@ -502,7 +512,7 @@
                 <div class="stat"><strong>你的總分</strong><span>${room.you.total_score}</span></div>
                 <div class="stat"><strong>你的勝場</strong><span>${room.you.wins}</span></div>
                 <div class="stat"><strong>提交狀態</strong><span>${room.submitted ? "已交卷" : "未交卷"}</span></div>
-                <div class="stat"><strong>剩餘時間</strong><span>${timerLabel(room)}</span></div>
+                <div class="stat"><strong>剩餘時間</strong><span class="${left !== null && left <= 10 ? "danger" : ""}" id="roundTimerStat">${timerLabel(room)}</span></div>
               </div>
               <p class="waiting">${state.submitted ? "你已提交，等待其他人交卷。" : "2 分鐘倒數中。時間到會自動交卷。橡皮擦可直接擦白色背景。"} </p>
               ${connectionHint()}
@@ -554,33 +564,16 @@
       };
 
       document.getElementById("submitBtn").onclick = async () => {
-        if (state.submitted) return;
         clickSound();
-        const canvas = document.getElementById("drawCanvas");
-        const image = canvas.toDataURL("image/png");
-        const response = await jsonFetch("/api/draw/submit", {
-          method: "POST",
-          body: JSON.stringify({
-            room_code: state.roomCode,
-            player_id: state.playerId,
-            strokes: state.strokes,
-            image,
-          }),
-        });
-        state.roomState = response;
-        state.submitted = true;
-        state.renderKey = "";
-        if (response.stage === "voting") {
-          renderVoting();
-        } else {
-          renderGame();
-        }
+        await submitCurrentRound();
       };
+      startDrawingTicker();
       wireCanvas();
       redrawCanvas();
     }
 
     function renderVoting() {
+      clearRoundTicker();
       state.currentStage = "voting";
       const room = state.roomState;
       const votesCast = room.votes_cast || {};
@@ -668,6 +661,7 @@
     }
 
     function renderResults() {
+      clearRoundTicker();
       state.currentStage = state.roomState.stage;
       const room = state.roomState;
       const result = room.round_result || { scores: {}, likes: {}, eggs: {}, roasts: {}, images: {} };
@@ -848,6 +842,72 @@
           strokes: state.strokes,
         }),
       });
+    }
+
+    async function submitCurrentRound() {
+      if (state.submitted || !state.roomCode || !state.playerId || state.currentStage !== "drawing") return;
+      const canvas = document.getElementById("drawCanvas");
+      const image = canvas ? canvas.toDataURL("image/png") : "";
+      const response = await jsonFetch("/api/draw/submit", {
+        method: "POST",
+        body: JSON.stringify({
+          room_code: state.roomCode,
+          player_id: state.playerId,
+          strokes: state.strokes,
+          image,
+        }),
+      });
+      state.roomState = response;
+      state.submitted = true;
+      state.renderKey = "";
+      if (response.stage === "voting") {
+        renderVoting();
+      } else {
+        renderGame();
+      }
+    }
+
+    function startDrawingTicker() {
+      clearRoundTicker();
+      state.roundTicker = setInterval(async () => {
+        if (state.currentStage !== "drawing" || !state.roomState) {
+          clearRoundTicker();
+          return;
+        }
+        const left = secondsLeft(state.roomState);
+        if (left === null) return;
+        if (left <= 0) {
+          clearRoundTicker();
+          if (!state.submitted) {
+            try {
+              await submitCurrentRound();
+            } catch (err) {
+              state.lastError = err.message;
+              await loadState(true);
+            }
+          } else {
+            await loadState(true);
+          }
+          return;
+        }
+        updateDrawingCountdown();
+      }, 1000);
+    }
+
+    function updateDrawingCountdown() {
+      if (state.currentStage !== "drawing" || !state.roomState) return;
+      const left = secondsLeft(state.roomState);
+      const label = timerLabel(state.roomState);
+      const badge = document.getElementById("roundTimerBadge");
+      const stat = document.getElementById("roundTimerStat");
+      if (badge) {
+        badge.textContent = `倒數 ${label}`;
+        badge.classList.toggle("danger", left !== null && left <= 10);
+      }
+      if (stat) {
+        stat.textContent = label;
+        stat.classList.toggle("danger", left !== null && left <= 10);
+      }
     }
 
     renderLanding();
