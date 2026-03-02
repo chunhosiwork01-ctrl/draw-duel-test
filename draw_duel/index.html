@@ -102,6 +102,8 @@
     .toolbar-right { display: flex; gap: 10px; flex-wrap: wrap; }
     .hint { font-size: 13px; color: var(--muted); }
     .winner { border-color: rgba(130,214,164,0.45); box-shadow: inset 0 0 0 1px rgba(130,214,164,0.2); }
+    .danger { color: var(--bad); }
+    .reconnect { color: #ffd16a; }
     a { color: #a9c9ff; }
     @media (max-width: 900px) {
       .hero, .join-grid, .board-grid, .results-grid, .status-grid { grid-template-columns: 1fr; }
@@ -135,6 +137,9 @@
       ambientTimer: null,
       renderKey: "",
       currentStage: "",
+      lastError: "",
+      consecutiveFailures: 0,
+      tool: "brush",
     };
 
     const COLORS = ["#111111", "#d62828", "#1d4ed8", "#15803d", "#f59e0b", "#7c3aed", "#ec4899", "#0ea5e9"];
@@ -233,6 +238,7 @@
       return JSON.stringify({
         stage: data.stage,
         round: data.round_index,
+        deadline: data.round_deadline_at,
         submitted: data.submitted,
         submissions: data.submissions,
         votes_cast: data.votes_cast,
@@ -247,6 +253,8 @@
       try {
         const data = await fetch(`/api/state?room=${encodeURIComponent(state.roomCode)}&player=${encodeURIComponent(state.playerId)}`).then((res) => res.json());
         if (data.ok === false) throw new Error(data.error || "Unable to load room");
+        state.lastError = "";
+        state.consecutiveFailures = 0;
         state.roomState = data;
         state.submitted = !!data.submitted;
         const nextKey = buildRenderKey(data);
@@ -264,8 +272,40 @@
           renderWaiting();
         }
       } catch (err) {
-        renderLanding(err.message);
+        state.consecutiveFailures += 1;
+        state.lastError = err.message;
+        if (!state.roomState) {
+          renderLanding(err.message);
+          return;
+        }
+        if (state.currentStage === "drawing") {
+          renderGame();
+        } else if (state.currentStage === "voting") {
+          renderVoting();
+        } else if (state.currentStage === "results" || state.currentStage === "finished") {
+          renderResults();
+        } else {
+          renderWaiting();
+        }
       }
+    }
+
+    function secondsLeft(room) {
+      if (!room || !room.round_deadline_at) return null;
+      return Math.max(0, Math.ceil(room.round_deadline_at - Date.now() / 1000));
+    }
+
+    function timerLabel(room) {
+      const left = secondsLeft(room);
+      if (left === null) return "02:00";
+      const minutes = String(Math.floor(left / 60)).padStart(2, "0");
+      const seconds = String(left % 60).padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
+
+    function connectionHint() {
+      if (!state.lastError) return "";
+      return `<p class="reconnect">連線重試中：${state.lastError}</p>`;
     }
 
     function renderLanding(error = "") {
@@ -410,6 +450,7 @@
               <div class="toolbar-right">
                 <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
                 <div class="badge-row">
+                  <span class="badge ${secondsLeft(room) !== null && secondsLeft(room) <= 15 ? "danger" : ""}">倒數 ${timerLabel(room)}</span>
                   ${room.players.map((player) => `<span class="badge">${player.name} ${room.submissions[player.id] ? "已提交" : "作畫中"}</span>`).join("")}
                 </div>
               </div>
@@ -427,9 +468,11 @@
           <div class="board-grid">
             <div class="card shell">
               <h3>你的畫板</h3>
-              <div class="palette">${COLORS.map((color) => `<button data-color="${color}" style="background:${color}" class="${state.color === color ? "active" : ""}"></button>`).join("")}</div>
+              <div class="palette">${COLORS.map((color) => `<button data-color="${color}" style="background:${color}" class="${state.tool === "brush" && state.color === color ? "active" : ""}"></button>`).join("")}</div>
               <select class="select" id="brushSize">${BRUSHES.map((size) => `<option value="${size}" ${state.size === size ? "selected" : ""}>筆刷 ${size}px</option>`).join("")}</select>
               <div class="tool-row">
+                <button class="ghost" id="brushToolBtn">畫筆</button>
+                <button class="ghost" id="eraserToolBtn">橡皮擦</button>
                 <button class="ghost" id="clearBtn">清空</button>
                 <button class="primary" id="submitBtn" ${state.submitted ? "disabled" : ""}>提交本回合</button>
               </div>
@@ -445,9 +488,10 @@
                 <div class="stat"><strong>你的總分</strong><span>${room.you.total_score}</span></div>
                 <div class="stat"><strong>你的勝場</strong><span>${room.you.wins}</span></div>
                 <div class="stat"><strong>提交狀態</strong><span>${room.submitted ? "已交卷" : "未交卷"}</span></div>
-                <div class="stat"><strong>投票方式</strong><span>讚 / 雞蛋</span></div>
+                <div class="stat"><strong>剩餘時間</strong><span>${timerLabel(room)}</span></div>
               </div>
-              <p class="waiting">${state.submitted ? "你已提交，等待其他人交卷。" : "請在畫板上作畫，只有狀態變更時才會重繪畫面。"} </p>
+              <p class="waiting">${state.submitted ? "你已提交，等待其他人交卷。" : "2 分鐘倒數中。時間到會自動交卷。橡皮擦可直接擦白色背景。"} </p>
+              ${connectionHint()}
             </div>
           </div>
         </div>
@@ -456,6 +500,7 @@
       document.querySelectorAll(".palette button").forEach((btn) => {
         btn.onclick = () => {
           clickSound();
+          state.tool = "brush";
           state.color = btn.dataset.color;
           state.renderKey = "";
           renderGame();
@@ -469,6 +514,20 @@
 
       document.getElementById("soundToggleBtn").onclick = () => {
         toggleSound();
+        state.renderKey = "";
+        renderGame();
+      };
+
+      document.getElementById("brushToolBtn").onclick = () => {
+        clickSound();
+        state.tool = "brush";
+        state.renderKey = "";
+        renderGame();
+      };
+
+      document.getElementById("eraserToolBtn").onclick = () => {
+        clickSound();
+        state.tool = "eraser";
         state.renderKey = "";
         renderGame();
       };
@@ -530,6 +589,7 @@
               </div>
             </div>
             <p>現在先公布標準圖片，大家看著同一張參考圖，再對彼此作品投票。你不能投自己，但必須對其他每位玩家都投一票。</p>
+            ${connectionHint()}
           </div>
 
           ${room.prompt_image ? `
@@ -638,6 +698,7 @@
             ${room.stage === "results" && room.can_next ? '<button class="primary" id="nextRoundBtn">開始下一回合</button>' : ""}
             ${room.stage === "results" && !room.can_next ? '<p class="waiting">等待房主開始下一回合。</p>' : ""}
             ${room.stage === "finished" ? '<p class="good">遊戲結束。可以回首頁建立新房間再玩。</p>' : ""}
+            ${connectionHint()}
           </div>
         </div>
       `;
@@ -687,7 +748,7 @@
         event.preventDefault();
         const point = pointFromEvent(event);
         state.currentStroke = {
-          color: state.color,
+          color: state.tool === "eraser" ? "#ffffff" : state.color,
           size: state.size,
           points: [point],
         };

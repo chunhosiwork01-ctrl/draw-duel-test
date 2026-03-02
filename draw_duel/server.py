@@ -20,6 +20,7 @@ PORT = int(os.getenv("PORT", "8765"))
 TOTAL_ROUNDS = 3
 ROOM_CODE_LEN = 5
 MAX_PLAYERS = 6
+DRAWING_DURATION_SECONDS = 120
 
 PROMPTS = [
     {
@@ -113,6 +114,8 @@ def fresh_room(name):
         "current_prompt_image": "",
         "current_prompt_source": "",
         "current_prompt_slug": "",
+        "round_started_at": None,
+        "round_deadline_at": None,
         "drawings": {player_id: fresh_drawing()},
         "votes": {},
         "round_result": None,
@@ -156,12 +159,25 @@ def start_round(room):
     room["round_result"] = None
     room["votes"] = {}
     room["stage"] = "drawing"
+    room["round_started_at"] = time.time()
+    room["round_deadline_at"] = room["round_started_at"] + DRAWING_DURATION_SECONDS
     for player_id in room["players_order"]:
         room["drawings"][player_id] = fresh_drawing()
 
 
 def all_submitted(room):
     return all(room["drawings"][player_id]["submitted"] for player_id in room["players_order"])
+
+
+def maybe_advance_drawing(room):
+    if room["stage"] != "drawing":
+        return
+    deadline = room.get("round_deadline_at")
+    if deadline and time.time() >= deadline:
+        for player_id in room["players_order"]:
+            room["drawings"][player_id]["submitted"] = True
+        room["stage"] = "voting"
+        room["votes"] = {}
 
 
 def vote_target_ids(room, voter_id):
@@ -274,6 +290,9 @@ def sanitize_room(room, player_id):
         "prompt_slug": room.get("current_prompt_slug"),
         "round_index": room["round_index"],
         "total_rounds": TOTAL_ROUNDS,
+        "drawing_duration_seconds": DRAWING_DURATION_SECONDS,
+        "round_started_at": room.get("round_started_at"),
+        "round_deadline_at": room.get("round_deadline_at"),
         "submitted": drawings.get(player_id, {}).get("submitted", False),
         "submissions": {pid: drawings.get(pid, {}).get("submitted", False) for pid in room["players_order"]},
         "gallery": gallery,
@@ -347,6 +366,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not room or player_id not in room["players"]:
                     error_response(self, "Room or player not found", HTTPStatus.NOT_FOUND)
                     return
+                maybe_advance_drawing(room)
                 json_response(self, sanitize_room(room, player_id))
             return
 
@@ -393,6 +413,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not room or player_id not in room["players"]:
                     error_response(self, "Room or player not found", HTTPStatus.NOT_FOUND)
                     return
+                maybe_advance_drawing(room)
 
                 if parsed.path == "/api/room/start":
                     if player_id != room["host_id"]:
