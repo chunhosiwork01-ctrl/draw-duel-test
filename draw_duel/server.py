@@ -25,26 +25,26 @@ PROMPTS = [
     {
         "label": "喜羊羊",
         "slug": "pleasant-goat",
-        "image": "/api/reference-image?slug=pleasant-goat",
-        "source": "In-game local reference illustration",
+        "image": "/assets/pleasant-goat.png",
+        "source": "Local uploaded reference image",
     },
     {
         "label": "哆啦A夢",
         "slug": "doraemon",
-        "image": "/api/reference-image?slug=doraemon",
-        "source": "In-game local reference illustration",
+        "image": "/assets/doraemon.png",
+        "source": "Local uploaded reference image",
     },
     {
         "label": "皮卡丘",
         "slug": "pikachu",
-        "image": "/api/reference-image?slug=pikachu",
-        "source": "In-game local reference illustration",
+        "image": "/assets/pikachu.png",
+        "source": "Local uploaded reference image",
     },
     {
         "label": "湯姆貓",
         "slug": "tom-cat",
-        "image": "/api/reference-image?slug=tom-cat",
-        "source": "In-game local reference illustration",
+        "image": "/assets/tom-cat.png",
+        "source": "Local uploaded reference image",
     },
 ]
 
@@ -314,17 +314,6 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(raw)
             return
 
-        if parsed.path == "/api/reference-image":
-            query = parse_qs(parsed.query)
-            slug = (query.get("slug") or [""])[0]
-            raw = reference_svg(slug).encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
-            self.send_header("Content-Length", str(len(raw)))
-            self.end_headers()
-            self.wfile.write(raw)
-            return
-
         if parsed.path.startswith("/assets/"):
             target = (ROOT / parsed.path.lstrip("/")).resolve()
             if ASSETS_DIR not in target.parents or not target.is_file():
@@ -336,6 +325,7 @@ class Handler(BaseHTTPRequestHandler):
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
                 ".webp": "image/webp",
+                ".svg": "image/svg+xml",
             }.get(target.suffix.lower(), "application/octet-stream")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", content_type)
@@ -475,89 +465,6 @@ class Handler(BaseHTTPRequestHandler):
                     return
 
         error_response(self, "Not found", HTTPStatus.NOT_FOUND)
-
-def reference_svg(slug):
-    illustrations = {
-        "doraemon": {
-            "name": "哆啦A夢",
-            "bg": "#dff7ff",
-            "body": """
-<circle cx="400" cy="420" r="170" fill="#2ca7e0"/>
-<circle cx="400" cy="395" r="128" fill="#ffffff"/>
-<circle cx="356" cy="316" r="46" fill="#ffffff"/><circle cx="444" cy="316" r="46" fill="#ffffff"/>
-<circle cx="370" cy="320" r="12" fill="#111"/><circle cx="430" cy="320" r="12" fill="#111"/>
-<circle cx="400" cy="362" r="20" fill="#d83b3b"/>
-<rect x="338" y="470" width="124" height="92" rx="48" fill="#ffffff"/>
-<path d="M320 380 Q400 455 480 380" stroke="#c02f2f" stroke-width="10" fill="none" stroke-linecap="round"/>
-<line x1="290" y1="370" x2="360" y2="360" stroke="#111" stroke-width="6"/>
-<line x1="290" y1="394" x2="358" y2="394" stroke="#111" stroke-width="6"/>
-<line x1="440" y1="360" x2="510" y2="370" stroke="#111" stroke-width="6"/>
-<line x1="442" y1="394" x2="510" y2="394" stroke="#111" stroke-width="6"/>
-<rect x="332" y="515" width="136" height="18" rx="9" fill="#f0c23b"/>
-""",
-        },
-        "pikachu": {
-            "name": "皮卡丘",
-            "bg": "#fff5bf",
-            "body": """
-<ellipse cx="400" cy="432" rx="150" ry="170" fill="#ffd84a"/>
-<path d="M300 214 L262 82 L352 184" fill="#ffd84a"/><path d="M500 214 L542 82 L450 184" fill="#ffd84a"/>
-<path d="M278 120 L295 170" stroke="#111" stroke-width="16" stroke-linecap="round"/>
-<path d="M522 120 L505 170" stroke="#111" stroke-width="16" stroke-linecap="round"/>
-<circle cx="338" cy="372" r="16" fill="#111"/><circle cx="462" cy="372" r="16" fill="#111"/>
-<circle cx="286" cy="430" r="26" fill="#e65b5b"/><circle cx="514" cy="430" r="26" fill="#e65b5b"/>
-<path d="M366 450 Q400 478 434 450" stroke="#8f5b00" stroke-width="10" fill="none" stroke-linecap="round"/>
-<path d="M532 478 L626 420 L590 418 L644 352" stroke="#8f5b00" stroke-width="24" fill="none" stroke-linejoin="round"/>
-""",
-        },
-        "tom-cat": {
-            "name": "湯姆貓",
-            "bg": "#e5eef7",
-            "body": """
-<ellipse cx="400" cy="434" rx="156" ry="176" fill="#7e8793"/>
-<path d="M290 270 L242 134 L352 218" fill="#7e8793"/><path d="M510 270 L558 134 L448 218" fill="#7e8793"/>
-<path d="M300 244 L270 178 L332 224" fill="#f1b4c8"/><path d="M500 244 L530 178 L468 224" fill="#f1b4c8"/>
-<ellipse cx="400" cy="440" rx="118" ry="130" fill="#d9dde2"/>
-<circle cx="350" cy="372" r="16" fill="#c5e55a"/><circle cx="450" cy="372" r="16" fill="#c5e55a"/>
-<circle cx="350" cy="372" r="8" fill="#111"/><circle cx="450" cy="372" r="8" fill="#111"/>
-<path d="M344 452 Q400 490 456 452" stroke="#111" stroke-width="10" fill="none" stroke-linecap="round"/>
-<path d="M330 418 L260 394 M330 432 L250 432 M330 446 L260 470" stroke="#111" stroke-width="6" stroke-linecap="round"/>
-<path d="M470 418 L540 394 M470 432 L550 432 M470 446 L540 470" stroke="#111" stroke-width="6" stroke-linecap="round"/>
-<path d="M190 430 Q150 340 194 264" stroke="#7e8793" stroke-width="18" fill="none" stroke-linecap="round"/>
-""",
-        },
-        "pleasant-goat": {
-            "name": "喜羊羊",
-            "bg": "#f2f8ff",
-            "body": """
-<circle cx="400" cy="420" r="154" fill="#ffffff"/>
-<circle cx="400" cy="314" r="126" fill="#fffdf7"/>
-<path d="M314 228 Q260 160 298 112" stroke="#b78bd6" stroke-width="18" fill="none" stroke-linecap="round"/>
-<path d="M486 228 Q540 160 502 112" stroke="#b78bd6" stroke-width="18" fill="none" stroke-linecap="round"/>
-<ellipse cx="322" cy="318" rx="20" ry="28" fill="#b78bd6"/><ellipse cx="478" cy="318" rx="20" ry="28" fill="#b78bd6"/>
-<circle cx="356" cy="314" r="16" fill="#111"/><circle cx="444" cy="314" r="16" fill="#111"/>
-<path d="M362 374 Q400 398 438 374" stroke="#111" stroke-width="10" fill="none" stroke-linecap="round"/>
-<circle cx="400" cy="350" r="12" fill="#d6924a"/>
-<path d="M342 220 Q400 168 458 220" stroke="#ffffff" stroke-width="22" fill="none" stroke-linecap="round"/>
-<path d="M348 224 Q400 184 452 224" stroke="#dfe8f0" stroke-width="10" fill="none" stroke-linecap="round"/>
-<rect x="334" y="492" width="132" height="28" rx="14" fill="#4d83d3"/>
-<circle cx="400" cy="506" r="16" fill="#f0d45d"/>
-""",
-        },
-    }
-    item = illustrations.get(slug, {
-        "name": "角色參考圖",
-        "bg": "#1b2432",
-        "body": '<rect x="220" y="220" width="360" height="360" rx="40" fill="#273447"/>',
-    })
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
-<rect width="800" height="800" fill="{item['bg']}"/>
-<rect x="34" y="34" width="732" height="732" rx="36" fill="rgba(255,255,255,0.28)" stroke="#f18f5c" stroke-width="8"/>
-<text x="400" y="110" text-anchor="middle" font-size="56" fill="#1a2230" font-family="Arial">角色參考圖</text>
-{item['body']}
-<text x="400" y="710" text-anchor="middle" font-size="74" fill="#1a2230" font-family="Arial">{item['name']}</text>
-</svg>"""
-
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)

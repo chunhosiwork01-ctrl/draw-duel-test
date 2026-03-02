@@ -441,12 +441,6 @@
             <div class="card shell">
               <h3>本回合規則</h3>
               <p>大家畫完之後，會進入全民投票。每位玩家都要對別人的作品選擇按讚或扔雞蛋，最後按全場投票直接算分。</p>
-              ${room.prompt_image ? `
-                <div class="card reference-card shell" style="background:#101722;">
-                  <h3>本回合參考圖</h3>
-                  <img src="${room.prompt_image}" alt="${room.prompt}" class="prompt-reference" data-label="${room.prompt}">
-                </div>
-              ` : ""}
               <div class="status-grid">
                 <div class="stat"><strong>你的總分</strong><span>${room.you.total_score}</span></div>
                 <div class="stat"><strong>你的勝場</strong><span>${room.you.wins}</span></div>
@@ -509,8 +503,6 @@
           renderGame();
         }
       };
-
-      wirePromptFallbacks();
       wireCanvas();
       redrawCanvas();
     }
@@ -615,9 +607,9 @@
             ${room.prompt_image ? `
               <div class="card reference-card shell" style="background:#101722;">
                 <h3>本回合參考形象</h3>
-                <p>這是本回合角色的網絡參考圖，方便大家對照結果。</p>
-                <img src="${room.prompt_image}" alt="${room.prompt}" referrerpolicy="no-referrer" data-label="${room.prompt}" class="prompt-reference">
-                ${room.prompt_source ? `<p><a href="${room.prompt_source}" target="_blank" rel="noreferrer">圖片來源頁面</a></p>` : ""}
+                <p>這是你提供的標準圖片，現在才公布，避免玩家在作畫時直接照著描。</p>
+                <img src="${room.prompt_image}" alt="${room.prompt}">
+                ${room.prompt_source ? `<p>${room.prompt_source}</p>` : ""}
               </div>
             ` : ""}
             <div class="results-grid">
@@ -647,9 +639,6 @@
         state.renderKey = "";
         renderResults();
       };
-
-      wirePromptFallbacks();
-
       const btn = document.getElementById("nextRoundBtn");
       if (btn) {
         btn.onclick = async () => {
@@ -670,27 +659,6 @@
     function nameById(playerId) {
       const player = (state.roomState.players || []).find((item) => item.id === playerId);
       return player ? player.name : "未知玩家";
-    }
-
-    function promptFallbackSvg(label) {
-      const text = encodeURIComponent(label || "角色參考圖");
-      return `data:image/svg+xml;charset=UTF-8,` +
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">` +
-        `<rect width="800" height="800" fill="%23111822"/>` +
-        `<rect x="36" y="36" width="728" height="728" rx="38" fill="%23161f2d" stroke="%23f18f5c" stroke-width="8"/>` +
-        `<text x="400" y="320" text-anchor="middle" font-size="54" fill="%23ffd16a" font-family="Arial">角色參考圖</text>` +
-        `<text x="400" y="430" text-anchor="middle" font-size="92" fill="%23eef4ff" font-family="Arial">${text}</text>` +
-        `<text x="400" y="530" text-anchor="middle" font-size="30" fill="%2391a0b8" font-family="Arial">遠端圖片載入失敗，請查看下方來源連結</text>` +
-        `</svg>`;
-    }
-
-    function wirePromptFallbacks() {
-      document.querySelectorAll(".prompt-reference").forEach((img) => {
-        img.onerror = () => {
-          img.onerror = null;
-          img.src = promptFallbackSvg(img.dataset.label || "角色");
-        };
-      });
     }
 
     function wireCanvas() {
