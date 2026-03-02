@@ -529,8 +529,16 @@
                 </div>
               </div>
             </div>
-            <p>現在輪到大家互評。你不能投自己，但必須對其他每位玩家都投一票。</p>
+            <p>現在先公布標準圖片，大家看著同一張參考圖，再對彼此作品投票。你不能投自己，但必須對其他每位玩家都投一票。</p>
           </div>
+
+          ${room.prompt_image ? `
+            <div class="card reference-card shell">
+              <h3>本回合標準圖片</h3>
+              <p>評分前先看標準答案，避免每個人的印象差太遠。</p>
+              <img src="${room.prompt_image}" alt="${room.prompt}">
+            </div>
+          ` : ""}
 
           <div class="gallery-grid">
             ${room.players.map((player) => {
@@ -607,7 +615,7 @@
             ${room.prompt_image ? `
               <div class="card reference-card shell" style="background:#101722;">
                 <h3>本回合參考形象</h3>
-                <p>這是你提供的標準圖片，現在才公布，避免玩家在作畫時直接照著描。</p>
+                <p>這是本回合用來投票的標準圖片，這裡保留作最後結算時再次對照。</p>
                 <img src="${room.prompt_image}" alt="${room.prompt}">
                 ${room.prompt_source ? `<p>${room.prompt_source}</p>` : ""}
               </div>
