@@ -21,6 +21,7 @@ TOTAL_ROUNDS = 3
 ROOM_CODE_LEN = 5
 MAX_PLAYERS = 6
 DRAWING_DURATION_SECONDS = 120
+VOTING_DURATION_SECONDS = 30
 
 PROMPTS = [
     {
@@ -45,6 +46,48 @@ PROMPTS = [
         "label": "湯姆貓",
         "slug": "tom-cat",
         "image": "/assets/tom-cat.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "米老鼠",
+        "slug": "mickey-mouse",
+        "image": "/assets/mickey-mouse.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "海綿寶寶",
+        "slug": "spongebob",
+        "image": "/assets/spongebob.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "小丸子",
+        "slug": "chibi-maruko",
+        "image": "/assets/chibi-maruko.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "蠟筆小新",
+        "slug": "shinchan",
+        "image": "/assets/shinchan.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "Hello Kitty",
+        "slug": "hello-kitty",
+        "image": "/assets/hello-kitty.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "加菲貓",
+        "slug": "garfield",
+        "image": "/assets/garfield.png",
+        "source": "Local uploaded reference image",
+    },
+    {
+        "label": "唐老鴨",
+        "slug": "donald-duck",
+        "image": "/assets/donald-duck.png",
         "source": "Local uploaded reference image",
     },
 ]
@@ -81,6 +124,7 @@ def player_summary(room):
             "is_host": room["players"][player_id]["is_host"],
             "wins": room["players"][player_id]["wins"],
             "total_score": room["players"][player_id]["total_score"],
+            "roast_history": room["players"][player_id]["roast_history"],
         }
         for player_id in room["players_order"]
     ]
@@ -105,6 +149,7 @@ def fresh_room(name):
                 "is_host": True,
                 "wins": 0,
                 "total_score": 0,
+                "roast_history": [],
             }
         },
         "stage": "waiting",
@@ -116,6 +161,8 @@ def fresh_room(name):
         "current_prompt_slug": "",
         "round_started_at": None,
         "round_deadline_at": None,
+        "vote_started_at": None,
+        "vote_deadline_at": None,
         "drawings": {player_id: fresh_drawing()},
         "votes": {},
         "round_result": None,
@@ -140,6 +187,7 @@ def join_room(room_code, name):
         "is_host": False,
         "wins": 0,
         "total_score": 0,
+        "roast_history": [],
     }
     room["drawings"][player_id] = fresh_drawing()
     return room, player_id
@@ -161,6 +209,8 @@ def start_round(room):
     room["stage"] = "drawing"
     room["round_started_at"] = time.time()
     room["round_deadline_at"] = room["round_started_at"] + DRAWING_DURATION_SECONDS
+    room["vote_started_at"] = None
+    room["vote_deadline_at"] = None
     for player_id in room["players_order"]:
         room["drawings"][player_id] = fresh_drawing()
 
@@ -178,6 +228,16 @@ def maybe_advance_drawing(room):
             room["drawings"][player_id]["submitted"] = True
         room["stage"] = "voting"
         room["votes"] = {}
+        room["vote_started_at"] = time.time()
+        room["vote_deadline_at"] = room["vote_started_at"] + VOTING_DURATION_SECONDS
+
+
+def maybe_advance_voting(room):
+    if room["stage"] != "voting":
+        return
+    deadline = room.get("vote_deadline_at")
+    if deadline and time.time() >= deadline:
+        finalize_round(room)
 
 
 def vote_target_ids(room, voter_id):
@@ -255,9 +315,12 @@ def finalize_round(room):
     result["winner_id"] = winner_id
     room["round_result"] = result
     room["stage"] = "results"
+    room["vote_started_at"] = None
+    room["vote_deadline_at"] = None
 
     for player_id, score in result["scores"].items():
         room["players"][player_id]["total_score"] += score
+        room["players"][player_id]["roast_history"].append(result["roasts"][player_id])
     if winner_id:
         room["players"][winner_id]["wins"] += 1
 
@@ -293,6 +356,9 @@ def sanitize_room(room, player_id):
         "drawing_duration_seconds": DRAWING_DURATION_SECONDS,
         "round_started_at": room.get("round_started_at"),
         "round_deadline_at": room.get("round_deadline_at"),
+        "voting_duration_seconds": VOTING_DURATION_SECONDS,
+        "vote_started_at": room.get("vote_started_at"),
+        "vote_deadline_at": room.get("vote_deadline_at"),
         "submitted": drawings.get(player_id, {}).get("submitted", False),
         "submissions": {pid: drawings.get(pid, {}).get("submitted", False) for pid in room["players_order"]},
         "gallery": gallery,
@@ -367,6 +433,7 @@ class Handler(BaseHTTPRequestHandler):
                     error_response(self, "Room or player not found", HTTPStatus.NOT_FOUND)
                     return
                 maybe_advance_drawing(room)
+                maybe_advance_voting(room)
                 json_response(self, sanitize_room(room, player_id))
             return
 
@@ -414,6 +481,7 @@ class Handler(BaseHTTPRequestHandler):
                     error_response(self, "Room or player not found", HTTPStatus.NOT_FOUND)
                     return
                 maybe_advance_drawing(room)
+                maybe_advance_voting(room)
 
                 if parsed.path == "/api/room/start":
                     if player_id != room["host_id"]:
@@ -461,6 +529,8 @@ class Handler(BaseHTTPRequestHandler):
                     if all_submitted(room):
                         room["stage"] = "voting"
                         room["votes"] = {}
+                        room["vote_started_at"] = time.time()
+                        room["vote_deadline_at"] = room["vote_started_at"] + VOTING_DURATION_SECONDS
                     json_response(self, sanitize_room(room, player_id))
                     return
 

@@ -98,6 +98,12 @@
     .good { color: var(--good); }
     .bad { color: var(--bad); }
     .egg-text { color: var(--egg); }
+    .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end; }
+    .podium-card { text-align: center; min-height: 220px; }
+    .podium-rank { font-size: 44px; font-weight: 800; }
+    .podium-card.first { min-height: 290px; }
+    .podium-card.second { min-height: 250px; }
+    .podium-card.third { min-height: 220px; }
     .waiting { color: var(--muted); font-style: italic; }
     .toolbar-right { display: flex; gap: 10px; flex-wrap: wrap; }
     .hint { font-size: 13px; color: var(--muted); }
@@ -106,7 +112,7 @@
     .reconnect { color: #ffd16a; }
     a { color: #a9c9ff; }
     @media (max-width: 900px) {
-      .hero, .join-grid, .board-grid, .results-grid, .status-grid { grid-template-columns: 1fr; }
+      .hero, .join-grid, .board-grid, .results-grid, .status-grid, .podium { grid-template-columns: 1fr; }
       .topbar { flex-direction: column; align-items: stretch; }
     }
     @media (max-width: 768px) {
@@ -142,7 +148,7 @@
       tool: "brush",
     };
 
-    const COLORS = ["#111111", "#d62828", "#1d4ed8", "#15803d", "#f59e0b", "#7c3aed", "#ec4899", "#0ea5e9"];
+    const COLORS = ["#111111", "#ffffff", "#d62828", "#f77f00", "#fcbf49", "#2a9d8f", "#15803d", "#06d6a0", "#0ea5e9", "#1d4ed8", "#7c3aed", "#8338ec", "#ec4899", "#ff5d8f", "#8d6e63", "#9aa0a6"];
     const BRUSHES = [4, 8, 14, 22];
 
     function getAudioContext() {
@@ -298,6 +304,14 @@
     function timerLabel(room) {
       const left = secondsLeft(room);
       if (left === null) return "02:00";
+      const minutes = String(Math.floor(left / 60)).padStart(2, "0");
+      const seconds = String(left % 60).padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
+
+    function votingTimerLabel(room) {
+      if (!room || !room.vote_deadline_at) return "00:30";
+      const left = Math.max(0, Math.ceil(room.vote_deadline_at - Date.now() / 1000));
       const minutes = String(Math.floor(left / 60)).padStart(2, "0");
       const seconds = String(left % 60).padStart(2, "0");
       return `${minutes}:${seconds}`;
@@ -584,6 +598,7 @@
                 <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
                 <div class="badge-row">
                   <span class="badge">你已投 ${votedCount} / ${requiredCount}</span>
+                  <span class="badge ${room.vote_deadline_at && (room.vote_deadline_at - Date.now() / 1000) <= 10 ? "danger" : ""}">投票倒數 ${votingTimerLabel(room)}</span>
                   <span class="badge">按讚或扔雞蛋才能結算</span>
                 </div>
               </div>
@@ -656,6 +671,9 @@
       state.currentStage = state.roomState.stage;
       const room = state.roomState;
       const result = room.round_result || { scores: {}, likes: {}, eggs: {}, roasts: {}, images: {} };
+      const podium = [...(room.players || [])]
+        .sort((a, b) => (b.wins - a.wins) || (b.total_score - a.total_score))
+        .slice(0, 3);
       app.innerHTML = `
         <div class="shell">
           <div class="card shell">
@@ -678,6 +696,22 @@
                 <p>這是本回合用來投票的標準圖片，這裡保留作最後結算時再次對照。</p>
                 <img src="${room.prompt_image}" alt="${room.prompt}">
                 ${room.prompt_source ? `<p>${room.prompt_source}</p>` : ""}
+              </div>
+            ` : ""}
+            ${room.stage === "finished" ? `
+              <div class="card shell" style="background:#101722;">
+                <h3>最終頒獎台</h3>
+                <div class="podium">
+                  ${podium.map((player, index) => `
+                    <div class="card podium-card shell ${index === 0 ? "first winner" : index === 1 ? "second" : "third"}">
+                      <div class="podium-rank">${index === 0 ? "1" : index === 1 ? "2" : "3"}</div>
+                      <h3>${player.name}</h3>
+                      <p><strong>總分：</strong> ${player.total_score}</p>
+                      <p><strong>勝場：</strong> ${player.wins}</p>
+                      <p>${(player.roast_history || []).slice(-1)[0] || "今晚沒留下吐槽紀錄。"}</p>
+                    </div>
+                  `).join("")}
+                </div>
               </div>
             ` : ""}
             <div class="results-grid">
