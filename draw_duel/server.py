@@ -88,6 +88,7 @@ def sanitize_room(room, player_id):
         "total_rounds": TOTAL_ROUNDS,
         "submitted": drawings.get(player_id, {}).get("submitted", False),
         "submissions": {pid: drawings.get(pid, {}).get("submitted", False) for pid in room["players_order"]},
+        "judging_started_at": room.get("judging_started_at"),
         "can_start": room["stage"] == "waiting" and room.get("host_id") == player_id and len(room["players_order"]) == 2,
         "can_next": room["stage"] == "results" and room.get("host_id") == player_id and room["round_index"] < TOTAL_ROUNDS - 1,
         "room_full": len(room["players_order"]) == 2,
@@ -125,6 +126,7 @@ def create_room(name):
         "drawings": {player_id: fresh_drawing()},
         "round_result": None,
         "final_winner_id": None,
+        "judging_started_at": None,
     }
     ROOMS[room_code] = room
     return room, player_id
@@ -159,6 +161,7 @@ def start_round(room):
     room["current_prompt"] = room["current_prompt"]["label"]
     room["stage"] = "drawing"
     room["round_result"] = None
+    room["judging_started_at"] = None
     for player_id in room["players_order"]:
         room["drawings"][player_id] = fresh_drawing()
 
@@ -332,12 +335,14 @@ def openai_judge(room):
 def judge_round(room):
     try:
         result = openai_judge(room)
-    except Exception:
+    except Exception as exc:
         result = fallback_judge(room)
         result["judge_mode"] = "fallback"
+        result["judge_error"] = str(exc)
 
     room["round_result"] = result
     room["stage"] = "results"
+    room["judging_started_at"] = None
 
     for player_id, score in result["scores"].items():
         room["players"][player_id]["total_score"] += score
@@ -352,6 +357,19 @@ def judge_round(room):
                 room["players"][pid]["total_score"],
             ),
         )
+
+
+def begin_judging(room_code):
+    with ROOM_LOCK:
+        room = ROOMS.get(room_code)
+        if not room or room["stage"] != "judging":
+            return
+
+    with ROOM_LOCK:
+        room = ROOMS.get(room_code)
+        if not room:
+            return
+        judge_round(room)
 
 
 def parse_json(handler):
@@ -498,7 +516,9 @@ class Handler(BaseHTTPRequestHandler):
                     room["drawings"][player_id]["image"] = payload.get("image", "")
                     room["drawings"][player_id]["submitted"] = True
                     if all(room["drawings"][pid]["submitted"] for pid in room["players_order"]):
-                        judge_round(room)
+                        room["stage"] = "judging"
+                        room["judging_started_at"] = time.time()
+                        threading.Thread(target=begin_judging, args=(room_code,), daemon=True).start()
                     json_response(self, sanitize_room(room, player_id))
                     return
 

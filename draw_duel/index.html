@@ -285,6 +285,8 @@
         if (data.stage === "drawing") {
           state.submitted = data.submitted;
           renderGame();
+        } else if (data.stage === "judging") {
+          renderJudging();
         } else if (data.stage === "results" || data.stage === "finished") {
           renderResults();
         } else {
@@ -424,7 +426,7 @@
         clickSound();
         const canvas = document.getElementById("drawCanvas");
         const image = canvas.toDataURL("image/png");
-        await jsonFetch("/api/draw/submit", {
+        const response = await jsonFetch("/api/draw/submit", {
           method: "POST",
           body: JSON.stringify({
             room_code: state.roomCode,
@@ -434,7 +436,60 @@
           }),
         });
         state.submitted = true;
-        loadState();
+        state.roomState = response;
+        if (response.stage === "judging") {
+          renderJudging();
+        } else if (response.stage === "results" || response.stage === "finished") {
+          renderResults();
+        } else {
+          renderGame();
+        }
+      };
+    }
+
+    function renderJudging() {
+      const room = state.roomState;
+      const submittedCount = Object.values(room.submissions || {}).filter(Boolean).length;
+      app.innerHTML = `
+        <div class="shell">
+          <div class="card shell">
+            <div class="topbar">
+              <div>
+                <p>本回合題目</p>
+                <h2>「${room.prompt}」已全部交卷</h2>
+              </div>
+              <div class="toolbar-right">
+                <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
+                <div class="badge-row">
+                  <span class="badge">AI 評分中</span>
+                  <span class="badge">${submittedCount}/${room.players.length} 已提交</span>
+                </div>
+              </div>
+            </div>
+            <div class="board-grid">
+              <div class="card shell" style="background:#101722;">
+                <h3>裁判正在看圖</h3>
+                <p>兩位玩家都已提交。系統正在比對畫作與題目角色的相似度，完成後會自動跳到評分頁。</p>
+                <p class="waiting">如果你有設定 OpenAI API key，這一步可能需要幾秒到十幾秒。</p>
+              </div>
+              <div class="card shell" style="background:#101722;">
+                <h3>目前提交狀態</h3>
+                <div class="status-grid">
+                  ${room.players.map(player => `
+                    <div class="stat">
+                      <strong>${player.name}</strong>
+                      <span>${room.submissions[player.id] ? "已交卷" : "未交卷"}</span>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById("soundToggleBtn").onclick = () => {
+        toggleSound();
+        renderJudging();
       };
     }
 
@@ -539,6 +594,7 @@
                 <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
                 <div class="badge-row">
                   <span class="badge">評分模式：${result.judge_mode || "fallback"}</span>
+                  ${result.judge_error ? `<span class="badge bad">AI失敗：${result.judge_error}</span>` : ""}
                   ${finalWinnerId ? `<span class="badge">總冠軍：${nameById(finalWinnerId)}</span>` : ""}
                 </div>
               </div>
