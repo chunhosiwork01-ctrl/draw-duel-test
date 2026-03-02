@@ -24,22 +24,22 @@ MAX_PLAYERS = 6
 PROMPTS = [
     {
         "label": "喜羊羊",
-        "image": "https://upload.wikimedia.org/wikipedia/en/c/c9/Pleasant_Goat_and_Big_Big_Wolf_characters.jpg",
+        "image": "https://commons.wikimedia.org/wiki/Special:FilePath/WYK%20Children%27s%20Library%20in%20Areia%20Preta%20Park.jpg",
         "source": "https://en.wikipedia.org/wiki/Pleasant_Goat_and_Big_Big_Wolf",
     },
     {
         "label": "哆啦A夢",
-        "image": "https://upload.wikimedia.org/wikipedia/commons/0/02/Takaoka_Doraemon.jpg",
+        "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Doraemon%20at%20National%20Museum%20of%20Singapore..jpg",
         "source": "https://en.wikipedia.org/wiki/Doraemon",
     },
     {
         "label": "皮卡丘",
-        "image": "https://upload.wikimedia.org/wikipedia/en/9/9f/Pikachu_artwork_for_Pok%C3%A9mon_Red_and_Green.png",
+        "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pikachu%20%282711849657%29.jpg",
         "source": "https://en.wikipedia.org/wiki/Pikachu",
     },
     {
         "label": "湯姆貓",
-        "image": "https://upload.wikimedia.org/wikipedia/en/f/f6/TomandJerryTitleCardc.jpg",
+        "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tom%20Cat%20and%20Jerry%20Mouse%20characters.png",
         "source": "https://en.wikipedia.org/wiki/Tom_Cat",
     },
 ]
@@ -214,7 +214,7 @@ def finalize_round(room):
     for player_id in room["players_order"]:
         likes = totals[player_id]["likes"]
         eggs = totals[player_id]["eggs"]
-        score = likes * 12 - eggs * 7
+        score = likes - eggs
         result["scores"][player_id] = score
         result["likes"][player_id] = likes
         result["eggs"][player_id] = eggs

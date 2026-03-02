@@ -57,6 +57,8 @@
     .vote-btn.like.active { background: rgba(130,214,164,0.2); border-color: rgba(130,214,164,0.5); color: var(--good); }
     .vote-btn.egg.active { background: rgba(255,139,139,0.16); border-color: rgba(255,139,139,0.45); color: var(--bad); }
     .vote-btn:disabled { cursor: default; opacity: 0.6; }
+    .vote-icon { font-size: 22px; line-height: 1; display: inline-block; }
+    .vote-btn { min-width: 72px; display: inline-flex; align-items: center; justify-content: center; }
     .input, .select {
       width: 100%;
       background: #0f1520;
@@ -540,8 +542,8 @@
                   <h3>${player.name}${own ? "（你的作品）" : ""}</h3>
                   <img src="${room.gallery[player.id] || ""}" alt="${player.name} 的作品">
                   <div class="vote-row">
-                    <button class="vote-btn like ${currentVote === "like" ? "active" : ""}" data-target="${player.id}" data-choice="like" ${own ? "disabled" : ""}>按讚</button>
-                    <button class="vote-btn egg ${currentVote === "egg" ? "active" : ""}" data-target="${player.id}" data-choice="egg" ${own ? "disabled" : ""}>扔雞蛋</button>
+                    <button class="vote-btn like ${currentVote === "like" ? "active" : ""}" data-target="${player.id}" data-choice="like" ${own ? "disabled" : ""} title="按讚"><span class="vote-icon">👍</span></button>
+                    <button class="vote-btn egg ${currentVote === "egg" ? "active" : ""}" data-target="${player.id}" data-choice="egg" ${own ? "disabled" : ""} title="扔雞蛋"><span class="vote-icon">🥚</span></button>
                   </div>
                   <p>${own ? "你不能給自己投票。" : currentVote ? `你目前投的是：${currentVote === "like" ? "按讚" : "扔雞蛋"}` : "尚未投票"}</p>
                 </div>
@@ -607,7 +609,7 @@
               <div class="card reference-card shell" style="background:#101722;">
                 <h3>本回合參考形象</h3>
                 <p>這是本回合角色的網絡參考圖，方便大家對照結果。</p>
-                <img src="${room.prompt_image}" alt="${room.prompt}">
+                <img src="${room.prompt_image}" alt="${room.prompt}" referrerpolicy="no-referrer" data-label="${room.prompt}" class="prompt-reference">
                 ${room.prompt_source ? `<p><a href="${room.prompt_source}" target="_blank" rel="noreferrer">圖片來源頁面</a></p>` : ""}
               </div>
             ` : ""}
@@ -639,6 +641,8 @@
         renderResults();
       };
 
+      wirePromptFallbacks();
+
       const btn = document.getElementById("nextRoundBtn");
       if (btn) {
         btn.onclick = async () => {
@@ -659,6 +663,27 @@
     function nameById(playerId) {
       const player = (state.roomState.players || []).find((item) => item.id === playerId);
       return player ? player.name : "未知玩家";
+    }
+
+    function promptFallbackSvg(label) {
+      const text = encodeURIComponent(label || "角色參考圖");
+      return `data:image/svg+xml;charset=UTF-8,` +
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">` +
+        `<rect width="800" height="800" fill="%23111822"/>` +
+        `<rect x="36" y="36" width="728" height="728" rx="38" fill="%23161f2d" stroke="%23f18f5c" stroke-width="8"/>` +
+        `<text x="400" y="320" text-anchor="middle" font-size="54" fill="%23ffd16a" font-family="Arial">角色參考圖</text>` +
+        `<text x="400" y="430" text-anchor="middle" font-size="92" fill="%23eef4ff" font-family="Arial">${text}</text>` +
+        `<text x="400" y="530" text-anchor="middle" font-size="30" fill="%2391a0b8" font-family="Arial">遠端圖片載入失敗，請查看下方來源連結</text>` +
+        `</svg>`;
+    }
+
+    function wirePromptFallbacks() {
+      document.querySelectorAll(".prompt-reference").forEach((img) => {
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = promptFallbackSvg(img.dataset.label || "角色");
+        };
+      });
     }
 
     function wireCanvas() {
