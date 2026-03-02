@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import base64
+import copy
 import hashlib
 import json
 import os
@@ -364,12 +365,37 @@ def begin_judging(room_code):
         room = ROOMS.get(room_code)
         if not room or room["stage"] != "judging":
             return
+        room_snapshot = copy.deepcopy(room)
+
+    try:
+        result = openai_judge(room_snapshot)
+    except Exception as exc:
+        result = fallback_judge(room_snapshot)
+        result["judge_mode"] = "fallback"
+        result["judge_error"] = str(exc)
 
     with ROOM_LOCK:
         room = ROOMS.get(room_code)
-        if not room:
+        if not room or room["stage"] != "judging":
             return
-        judge_round(room)
+
+        room["round_result"] = result
+        room["stage"] = "results"
+        room["judging_started_at"] = None
+
+        for player_id, score in result["scores"].items():
+            room["players"][player_id]["total_score"] += score
+        if result["winner_id"]:
+            room["players"][result["winner_id"]]["wins"] += 1
+
+        if room["round_index"] == TOTAL_ROUNDS - 1:
+            room["final_winner_id"] = max(
+                room["players_order"],
+                key=lambda pid: (
+                    room["players"][pid]["wins"],
+                    room["players"][pid]["total_score"],
+                ),
+            )
 
 
 def parse_json(handler):
