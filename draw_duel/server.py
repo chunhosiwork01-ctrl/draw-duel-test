@@ -139,13 +139,8 @@ def fresh_drawing():
 def build_prompt_deck(total_rounds):
     if not PROMPTS:
         return []
-    if total_rounds <= len(PROMPTS):
-        return random.sample(PROMPTS, k=total_rounds)
-    deck = PROMPTS[:]
-    while len(deck) < total_rounds:
-        deck.append(random.choice(PROMPTS))
-    random.shuffle(deck)
-    return deck[:total_rounds]
+    deck_size = min(total_rounds, len(PROMPTS))
+    return random.sample(PROMPTS, k=deck_size)
 
 
 def fresh_room(name):
@@ -369,6 +364,7 @@ def finalize_round(room):
                 room["players"][player_id]["total_score"],
             ),
         )
+        room["stage"] = "finished"
 
 
 def sanitize_room(room, player_id):
@@ -408,6 +404,7 @@ def sanitize_room(room, player_id):
         "round_result": room.get("round_result") or {},
         "final_winner_id": room.get("final_winner_id"),
         "max_players": MAX_PLAYERS,
+        "available_prompt_count": len(PROMPTS),
     }
 
 
@@ -545,7 +542,7 @@ class Handler(BaseHTTPRequestHandler):
                         error_response(self, "Settings can only be changed before the game starts")
                         return
                     total_rounds = int(payload.get("total_rounds", room["total_rounds"]))
-                    total_rounds = max(1, min(9, total_rounds))
+                    total_rounds = max(1, min(9, len(PROMPTS), total_rounds))
                     room["total_rounds"] = total_rounds
                     room["prompts"] = build_prompt_deck(total_rounds)
                     json_response(self, sanitize_room(room, player_id))

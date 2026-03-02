@@ -156,6 +156,7 @@
       roundTicker: null,
       renderKey: "",
       currentStage: "",
+      lastRoundToken: "",
       lastError: "",
       consecutiveFailures: 0,
       tool: "brush",
@@ -290,12 +291,24 @@
         if (data.ok === false) throw new Error(data.error || "Unable to load room");
         state.lastError = "";
         state.consecutiveFailures = 0;
+        const previousStage = state.currentStage;
+        const nextRoundToken = `${data.stage}:${data.round_index}:${data.prompt_slug || ""}`;
         state.roomState = data;
         state.submitted = !!data.submitted;
+        if (data.stage === "drawing" && nextRoundToken !== state.lastRoundToken) {
+          state.strokes = [];
+          state.currentStroke = null;
+          state.submitted = !!data.submitted;
+        }
         const nextKey = buildRenderKey(data);
+        state.lastRoundToken = nextRoundToken;
         if (!force && nextKey === state.renderKey) return;
         state.renderKey = nextKey;
         state.currentStage = data.stage;
+
+        if (previousStage !== data.stage && data.stage !== "drawing") {
+          state.currentStroke = null;
+        }
 
         if (data.stage === "drawing") {
           renderGame();
@@ -443,6 +456,12 @@
       clearRoundTicker();
       state.currentStage = "waiting";
       const room = state.roomState;
+      const maxRounds = Math.max(room.available_prompt_count || 1, 1);
+      const roundOptions = [3, 5, 7, 9].filter((count) => count <= maxRounds);
+      if (!roundOptions.includes(room.total_rounds)) {
+        roundOptions.push(room.total_rounds);
+      }
+      roundOptions.sort((a, b) => a - b);
       const isHost = room.you && room.you.is_host;
       app.innerHTML = `
         <div class="card shell">
@@ -460,10 +479,10 @@
             <label>
               <p>房主設定回合數</p>
               <select class="select" id="roundCountSelect">
-                ${[3, 5, 7, 9].map((count) => `<option value="${count}" ${room.total_rounds === count ? "selected" : ""}>${count} 回合</option>`).join("")}
+                ${roundOptions.map((count) => `<option value="${count}" ${room.total_rounds === count ? "selected" : ""}>${count} 回合</option>`).join("")}
               </select>
             </label>
-          ` : `<p class="hint">房主目前設定：${room.total_rounds} 回合</p>`}
+          ` : `<p class="hint">房主目前設定：${room.total_rounds} 回合。現有題庫最多 ${maxRounds} 題。</p>`}
           <div class="tool-row">
             ${room.can_start ? '<button class="primary" id="startGameBtn">開始第一回合</button>' : '<p class="waiting">等待更多玩家加入，或等房主開局。</p>'}
             <button class="ghost" id="soundToggleBtn">${state.soundOn ? "音效：開" : "音效：關"}</button>
@@ -481,7 +500,9 @@
           });
           state.roomState = response;
           state.strokes = [];
+          state.currentStroke = null;
           state.submitted = false;
+          state.lastRoundToken = "";
           state.renderKey = "";
           renderGame();
         };
@@ -797,7 +818,9 @@
           });
           state.roomState = response;
           state.strokes = [];
+          state.currentStroke = null;
           state.submitted = false;
+          state.lastRoundToken = "";
           state.renderKey = "";
           renderGame();
         };
@@ -812,7 +835,9 @@
           });
           state.roomState = response;
           state.strokes = [];
+          state.currentStroke = null;
           state.submitted = false;
+          state.lastRoundToken = "";
           state.renderKey = "";
           renderWaiting();
         };
