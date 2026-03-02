@@ -57,6 +57,7 @@
     .palette button.active { transform: scale(1.08); border-color: #fff; }
     .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .result-card img { width: 100%; background: #fff; border-radius: 16px; border: 1px solid var(--line); }
+    .reference-card img { width: 100%; background: #fff; border-radius: 16px; border: 1px solid var(--line); }
     .score { font-size: 34px; font-weight: 800; }
     .good { color: var(--good); }
     .bad { color: var(--bad); }
@@ -542,6 +543,18 @@
                 </div>
               </div>
             </div>
+            ${room.prompt_image ? `
+              <div class="card reference-card shell" style="background:#101722;">
+                <h3>裁判公布標準形象</h3>
+                <p>這是本回合的角色參考圖，方便大家對照 AI 評分結果。</p>
+                <img src="${room.prompt_image}" alt="${room.prompt}">
+              </div>
+            ` : `
+              <div class="card shell" style="background:#101722;">
+                <h3>裁判公布標準形象</h3>
+                <p>目前還沒有放入這個角色的參考圖。你可以把對應圖片放到 <code>draw_duel/assets/</code> 之後再重開測試。</p>
+              </div>
+            `}
             <div class="results-grid">
               ${room.players.map(player => `
                 <div class="card result-card shell">

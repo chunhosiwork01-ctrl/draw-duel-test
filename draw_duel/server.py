@@ -18,20 +18,21 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent
 INDEX_HTML = ROOT / "index.html"
+ASSETS_DIR = ROOT / "assets"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8765"))
 TOTAL_ROUNDS = 3
 ROOM_CODE_LEN = 5
 
 PROMPTS = [
-    "喜羊羊",
-    "哆啦A夢",
-    "海綿寶寶",
-    "皮卡丘",
-    "小丸子",
-    "蠟筆小新",
-    "米老鼠",
-    "湯姆貓",
+    {"label": "喜羊羊", "image": "/assets/xiyangyang.png"},
+    {"label": "哆啦A夢", "image": "/assets/doraemon.png"},
+    {"label": "海綿寶寶", "image": "/assets/spongebob.png"},
+    {"label": "皮卡丘", "image": "/assets/pikachu.png"},
+    {"label": "小丸子", "image": "/assets/chibi-maruko.png"},
+    {"label": "蠟筆小新", "image": "/assets/shinchan.png"},
+    {"label": "米老鼠", "image": "/assets/mickey-mouse.png"},
+    {"label": "湯姆貓", "image": "/assets/tom-cat.png"},
 ]
 
 ROOMS = {}
@@ -82,6 +83,7 @@ def sanitize_room(room, player_id):
         "players": player_summary(room),
         "you": room["players"].get(player_id),
         "prompt": room.get("current_prompt"),
+        "prompt_image": room.get("current_prompt_image"),
         "round_index": room["round_index"],
         "total_rounds": TOTAL_ROUNDS,
         "submitted": drawings.get(player_id, {}).get("submitted", False),
@@ -119,6 +121,7 @@ def create_room(name):
         "round_index": -1,
         "prompts": random.sample(PROMPTS, k=min(TOTAL_ROUNDS, len(PROMPTS))),
         "current_prompt": None,
+        "current_prompt_image": "",
         "drawings": {player_id: fresh_drawing()},
         "round_result": None,
         "final_winner_id": None,
@@ -152,6 +155,8 @@ def start_round(room):
         room["stage"] = "finished"
         return
     room["current_prompt"] = room["prompts"][room["round_index"]]
+    room["current_prompt_image"] = room["current_prompt"].get("image", "")
+    room["current_prompt"] = room["current_prompt"]["label"]
     room["stage"] = "drawing"
     room["round_result"] = None
     for player_id in room["players_order"]:
@@ -370,6 +375,26 @@ class Handler(BaseHTTPRequestHandler):
             raw = INDEX_HTML.read_bytes()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+
+        if parsed.path.startswith("/assets/"):
+            target = (ROOT / parsed.path.lstrip("/")).resolve()
+            if ASSETS_DIR not in target.parents or not target.is_file():
+                error_response(self, "Asset not found", HTTPStatus.NOT_FOUND)
+                return
+            raw = target.read_bytes()
+            suffix = target.suffix.lower()
+            content_type = {
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".webp": "image/webp",
+            }.get(suffix, "application/octet-stream")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)

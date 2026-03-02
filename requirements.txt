@@ -1,0 +1,2 @@
+# No external Python packages are required for the default deployment.
+# The app runs on Python standard library only.

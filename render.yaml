@@ -3,9 +3,9 @@ services:
     name: draw-duel-test
     runtime: python
     plan: free
-    rootDir: draw_duel
-    buildCommand: python3 -m py_compile server.py
-    startCommand: python3 server.py
+    rootDir: .
+    buildCommand: pip install -r requirements.txt && python3 -m py_compile draw_duel/server.py
+    startCommand: python3 draw_duel/server.py
     healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
