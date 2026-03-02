@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-import base64
-import copy
-import hashlib
 import json
 import os
 import random
 import string
 import threading
 import time
-import urllib.error
-import urllib.request
 import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,16 +19,29 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8765"))
 TOTAL_ROUNDS = 3
 ROOM_CODE_LEN = 5
+MAX_PLAYERS = 6
 
 PROMPTS = [
-    {"label": "喜羊羊", "image": "/assets/xiyangyang.png"},
-    {"label": "哆啦A夢", "image": "/assets/doraemon.png"},
-    {"label": "海綿寶寶", "image": "/assets/spongebob.png"},
-    {"label": "皮卡丘", "image": "/assets/pikachu.png"},
-    {"label": "小丸子", "image": "/assets/chibi-maruko.png"},
-    {"label": "蠟筆小新", "image": "/assets/shinchan.png"},
-    {"label": "米老鼠", "image": "/assets/mickey-mouse.png"},
-    {"label": "湯姆貓", "image": "/assets/tom-cat.png"},
+    {
+        "label": "喜羊羊",
+        "image": "https://upload.wikimedia.org/wikipedia/en/c/c9/Pleasant_Goat_and_Big_Big_Wolf_characters.jpg",
+        "source": "https://en.wikipedia.org/wiki/Pleasant_Goat_and_Big_Big_Wolf",
+    },
+    {
+        "label": "哆啦A夢",
+        "image": "https://upload.wikimedia.org/wikipedia/commons/0/02/Takaoka_Doraemon.jpg",
+        "source": "https://en.wikipedia.org/wiki/Doraemon",
+    },
+    {
+        "label": "皮卡丘",
+        "image": "https://upload.wikimedia.org/wikipedia/en/9/9f/Pikachu_artwork_for_Pok%C3%A9mon_Red_and_Green.png",
+        "source": "https://en.wikipedia.org/wiki/Pikachu",
+    },
+    {
+        "label": "湯姆貓",
+        "image": "https://upload.wikimedia.org/wikipedia/en/f/f6/TomandJerryTitleCardc.jpg",
+        "source": "https://en.wikipedia.org/wiki/Tom_Cat",
+    },
 ]
 
 ROOMS = {}
@@ -55,54 +63,29 @@ def error_response(handler, message, status=HTTPStatus.BAD_REQUEST):
 
 def new_room_code():
     while True:
-      code = "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(ROOM_CODE_LEN))
-      if code not in ROOMS:
-          return code
+        code = "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(ROOM_CODE_LEN))
+        if code not in ROOMS:
+            return code
 
 
 def player_summary(room):
-    ordered = []
-    for player_id in room["players_order"]:
-        player = room["players"][player_id]
-        ordered.append({
-            "id": player["id"],
-            "name": player["name"],
-            "is_host": player["is_host"],
-            "wins": player["wins"],
-            "total_score": player["total_score"],
-        })
-    return ordered
-
-
-def sanitize_room(room, player_id):
-    drawings = room["drawings"]
-    result = room.get("round_result") or {}
-    return {
-        "ok": True,
-        "room_code": room["code"],
-        "stage": room["stage"],
-        "players": player_summary(room),
-        "you": room["players"].get(player_id),
-        "prompt": room.get("current_prompt"),
-        "prompt_image": room.get("current_prompt_image"),
-        "round_index": room["round_index"],
-        "total_rounds": TOTAL_ROUNDS,
-        "submitted": drawings.get(player_id, {}).get("submitted", False),
-        "submissions": {pid: drawings.get(pid, {}).get("submitted", False) for pid in room["players_order"]},
-        "judging_started_at": room.get("judging_started_at"),
-        "can_start": room["stage"] == "waiting" and room.get("host_id") == player_id and len(room["players_order"]) == 2,
-        "can_next": room["stage"] == "results" and room.get("host_id") == player_id and room["round_index"] < TOTAL_ROUNDS - 1,
-        "room_full": len(room["players_order"]) == 2,
-        "round_result": result,
-        "final_winner_id": room.get("final_winner_id"),
-    }
+    return [
+        {
+            "id": room["players"][player_id]["id"],
+            "name": room["players"][player_id]["name"],
+            "is_host": room["players"][player_id]["is_host"],
+            "wins": room["players"][player_id]["wins"],
+            "total_score": room["players"][player_id]["total_score"],
+        }
+        for player_id in room["players_order"]
+    ]
 
 
 def fresh_drawing():
     return {"strokes": [], "image": "", "submitted": False}
 
 
-def create_room(name):
+def fresh_room(name):
     room_code = new_room_code()
     player_id = uuid.uuid4().hex[:8]
     room = {
@@ -124,10 +107,11 @@ def create_room(name):
         "prompts": random.sample(PROMPTS, k=min(TOTAL_ROUNDS, len(PROMPTS))),
         "current_prompt": None,
         "current_prompt_image": "",
+        "current_prompt_source": "",
         "drawings": {player_id: fresh_drawing()},
+        "votes": {},
         "round_result": None,
         "final_winner_id": None,
-        "judging_started_at": None,
     }
     ROOMS[room_code] = room
     return room, player_id
@@ -137,13 +121,14 @@ def join_room(room_code, name):
     room = ROOMS.get(room_code)
     if not room:
         raise ValueError("Room not found")
-    if len(room["players_order"]) >= 2:
+    if len(room["players_order"]) >= MAX_PLAYERS:
         raise ValueError("Room is full")
+
     player_id = uuid.uuid4().hex[:8]
     room["players_order"].append(player_id)
     room["players"][player_id] = {
         "id": player_id,
-        "name": name or "Player 2",
+        "name": name or f"Player {len(room['players_order'])}",
         "is_host": False,
         "wins": 0,
         "total_score": 0,
@@ -157,245 +142,143 @@ def start_round(room):
     if room["round_index"] >= TOTAL_ROUNDS:
         room["stage"] = "finished"
         return
-    room["current_prompt"] = room["prompts"][room["round_index"]]
-    room["current_prompt_image"] = room["current_prompt"].get("image", "")
-    room["current_prompt"] = room["current_prompt"]["label"]
-    room["stage"] = "drawing"
+
+    prompt = room["prompts"][room["round_index"]]
+    room["current_prompt"] = prompt["label"]
+    room["current_prompt_image"] = prompt["image"]
+    room["current_prompt_source"] = prompt["source"]
     room["round_result"] = None
-    room["judging_started_at"] = None
+    room["votes"] = {}
+    room["stage"] = "drawing"
     for player_id in room["players_order"]:
         room["drawings"][player_id] = fresh_drawing()
 
 
-def collect_fallback_metrics(strokes):
-    points = 0
-    colors = set()
-    min_x = 10000
-    min_y = 10000
-    max_x = -1
-    max_y = -1
+def all_submitted(room):
+    return all(room["drawings"][player_id]["submitted"] for player_id in room["players_order"])
 
-    for stroke in strokes:
-        colors.add(stroke.get("color", "#000000"))
-        pts = stroke.get("points", [])
-        points += len(pts)
-        for point in pts:
-            x = point.get("x", 0)
-            y = point.get("y", 0)
-            min_x = min(min_x, x)
-            min_y = min(min_y, y)
-            max_x = max(max_x, x)
-            max_y = max(max_y, y)
 
-    width = 0 if max_x < min_x else max_x - min_x
-    height = 0 if max_y < min_y else max_y - min_y
-    area = width * height
-    return {
-        "points": points,
-        "color_count": len(colors),
-        "area": area,
+def vote_target_ids(room, voter_id):
+    return [player_id for player_id in room["players_order"] if player_id != voter_id]
+
+
+def all_votes_complete(room):
+    if len(room["players_order"]) < 2:
+        return False
+    for voter_id in room["players_order"]:
+        targets = vote_target_ids(room, voter_id)
+        cast = room["votes"].get(voter_id, {})
+        if any(target_id not in cast for target_id in targets):
+            return False
+    return True
+
+
+def vote_totals(room):
+    totals = {player_id: {"likes": 0, "eggs": 0} for player_id in room["players_order"]}
+    for ballot in room["votes"].values():
+        for target_id, choice in ballot.items():
+            if target_id not in totals:
+                continue
+            if choice == "like":
+                totals[target_id]["likes"] += 1
+            elif choice == "egg":
+                totals[target_id]["eggs"] += 1
+    return totals
+
+
+def roast_from_votes(name, prompt, likes, eggs):
+    if likes == 0 and eggs == 0:
+        return f"{name} 這張目前還沒人敢評，{prompt} 本人可能也在觀望。"
+    if likes == 0 and eggs > 0:
+        return f"{name} 這張把 {prompt} 畫成了都市傳說，現場雞蛋比掌聲多。"
+    if likes > eggs * 2:
+        return f"{name} 這張讓大家一眼就認出是 {prompt}，算是本局少數沒被群眾制裁的作品。"
+    if likes >= eggs:
+        return f"{name} 這張雖然有點走樣，但還保住了 {prompt} 的基本人格。"
+    return f"{name} 這張充滿個人風格，只是觀眾一致懷疑 {prompt} 看了會報警。"
+
+
+def finalize_round(room):
+    totals = vote_totals(room)
+    result = {
+        "scores": {},
+        "likes": {},
+        "eggs": {},
+        "roasts": {},
+        "images": {},
+        "winner_id": None,
     }
 
-
-def fallback_judge(room):
-    prompt = room["current_prompt"]
-    result = {"scores": {}, "roasts": {}, "winner_id": None, "images": {}}
-    winner_score = -1
     winner_id = None
-
+    winner_tuple = None
     for player_id in room["players_order"]:
-        drawing = room["drawings"][player_id]
-        metrics = collect_fallback_metrics(drawing["strokes"])
-        signature = hashlib.sha256((prompt + json.dumps(drawing["strokes"], ensure_ascii=False)).encode("utf-8")).hexdigest()
-        bonus = int(signature[:2], 16) % 18
-        complexity = min(metrics["points"] // 8, 35)
-        coverage = min(metrics["area"] // 3500, 25)
-        color_score = min(metrics["color_count"] * 5, 15)
-        score = max(8, min(100, 20 + complexity + coverage + color_score + bonus))
-        roast = fallback_roast(prompt, room["players"][player_id]["name"], score, metrics)
+        likes = totals[player_id]["likes"]
+        eggs = totals[player_id]["eggs"]
+        score = likes * 12 - eggs * 7
         result["scores"][player_id] = score
-        result["roasts"][player_id] = roast
-        result["images"][player_id] = drawing.get("image", "")
-        if score > winner_score:
-            winner_score = score
+        result["likes"][player_id] = likes
+        result["eggs"][player_id] = eggs
+        result["roasts"][player_id] = roast_from_votes(
+            room["players"][player_id]["name"],
+            room["current_prompt"],
+            likes,
+            eggs,
+        )
+        result["images"][player_id] = room["drawings"][player_id].get("image", "")
+        ranking = (score, likes, -eggs)
+        if winner_tuple is None or ranking > winner_tuple:
+            winner_tuple = ranking
             winner_id = player_id
 
     result["winner_id"] = winner_id
-    return result
-
-
-def fallback_roast(prompt, name, score, metrics):
-    if metrics["points"] < 10:
-        return f"{name}，你這張像是剛打開畫板就投降。{prompt} 還沒出場，靈魂先下線。"
-    if score < 35:
-        return f"{name} 畫的這位，像 {prompt} 的遠房表弟，走失很多年都沒找回來。"
-    if score < 60:
-        return f"{name} 至少有抓到一點記憶，但這版本的 {prompt} 比較像凌晨三點趕稿的同人分身。"
-    if score < 80:
-        return f"{name} 這張已經看得出是 {prompt}，只是還帶著一股『今天精神不太穩定』的氣質。"
-    return f"{name} 這張居然真有幾分神韻。雖然還不是官方原稿，但至少不會被叫成怪物。"
-
-
-def _extract_output_text(payload):
-    if isinstance(payload.get("output_text"), str) and payload["output_text"].strip():
-        return payload["output_text"]
-    fragments = []
-    for item in payload.get("output", []):
-        for content in item.get("content", []):
-            text = content.get("text")
-            if text:
-                fragments.append(text)
-    return "\n".join(fragments)
-
-
-def openai_judge(room):
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-
-    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-    player_ids = room["players_order"]
-    images = [room["drawings"][pid].get("image", "") for pid in player_ids]
-    if not all(images):
-        raise RuntimeError("Missing submitted image")
-
-    prompt = room["current_prompt"]
-    player_names = [room["players"][pid]["name"] for pid in player_ids]
-    payload = {
-        "model": model,
-        "input": [
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": (
-                            "You are a strict but funny drawing contest judge. "
-                            "Return JSON only with keys scores, roasts, winner_index. "
-                            "scores must be an array of two integers 0-100. "
-                            "roasts must be an array of two short playful roast strings. "
-                            "winner_index must be 0 or 1."
-                        ),
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": (
-                            f"Target character: {prompt}. "
-                            f"Player A is {player_names[0]}. Player B is {player_names[1]}. "
-                            "Judge visual similarity from memory drawing quality, recognizability, and shape resemblance."
-                        ),
-                    },
-                    {"type": "input_image", "image_url": images[0]},
-                    {"type": "input_image", "image_url": images[1]},
-                ],
-            },
-        ],
-    }
-
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=45) as response:
-        raw = json.loads(response.read().decode("utf-8"))
-
-    text = _extract_output_text(raw).strip()
-    parsed = json.loads(text)
-    scores = parsed["scores"]
-    roasts = parsed["roasts"]
-    winner_index = int(parsed["winner_index"])
-    result = {
-        "scores": {
-            player_ids[0]: int(scores[0]),
-            player_ids[1]: int(scores[1]),
-        },
-        "roasts": {
-            player_ids[0]: str(roasts[0]),
-            player_ids[1]: str(roasts[1]),
-        },
-        "winner_id": player_ids[winner_index],
-        "images": {
-            player_ids[0]: images[0],
-            player_ids[1]: images[1],
-        },
-        "judge_mode": "openai",
-    }
-    return result
-
-
-def judge_round(room):
-    try:
-        result = openai_judge(room)
-    except Exception as exc:
-        result = fallback_judge(room)
-        result["judge_mode"] = "fallback"
-        result["judge_error"] = str(exc)
-
     room["round_result"] = result
     room["stage"] = "results"
-    room["judging_started_at"] = None
 
     for player_id, score in result["scores"].items():
         room["players"][player_id]["total_score"] += score
-    if result["winner_id"]:
-        room["players"][result["winner_id"]]["wins"] += 1
+    if winner_id:
+        room["players"][winner_id]["wins"] += 1
 
     if room["round_index"] == TOTAL_ROUNDS - 1:
         room["final_winner_id"] = max(
             room["players_order"],
-            key=lambda pid: (
-                room["players"][pid]["wins"],
-                room["players"][pid]["total_score"],
+            key=lambda player_id: (
+                room["players"][player_id]["wins"],
+                room["players"][player_id]["total_score"],
             ),
         )
 
 
-def begin_judging(room_code):
-    with ROOM_LOCK:
-        room = ROOMS.get(room_code)
-        if not room or room["stage"] != "judging":
-            return
-        room_snapshot = copy.deepcopy(room)
+def sanitize_room(room, player_id):
+    drawings = room["drawings"]
+    gallery = {}
+    if room["stage"] in {"voting", "results", "finished"}:
+        for target_id in room["players_order"]:
+            gallery[target_id] = drawings[target_id].get("image", "")
 
-    try:
-        result = openai_judge(room_snapshot)
-    except Exception as exc:
-        result = fallback_judge(room_snapshot)
-        result["judge_mode"] = "fallback"
-        result["judge_error"] = str(exc)
-
-    with ROOM_LOCK:
-        room = ROOMS.get(room_code)
-        if not room or room["stage"] != "judging":
-            return
-
-        room["round_result"] = result
-        room["stage"] = "results"
-        room["judging_started_at"] = None
-
-        for player_id, score in result["scores"].items():
-            room["players"][player_id]["total_score"] += score
-        if result["winner_id"]:
-            room["players"][result["winner_id"]]["wins"] += 1
-
-        if room["round_index"] == TOTAL_ROUNDS - 1:
-            room["final_winner_id"] = max(
-                room["players_order"],
-                key=lambda pid: (
-                    room["players"][pid]["wins"],
-                    room["players"][pid]["total_score"],
-                ),
-            )
+    return {
+        "ok": True,
+        "room_code": room["code"],
+        "stage": room["stage"],
+        "players": player_summary(room),
+        "you": room["players"].get(player_id),
+        "prompt": room.get("current_prompt"),
+        "prompt_image": room.get("current_prompt_image"),
+        "prompt_source": room.get("current_prompt_source"),
+        "round_index": room["round_index"],
+        "total_rounds": TOTAL_ROUNDS,
+        "submitted": drawings.get(player_id, {}).get("submitted", False),
+        "submissions": {pid: drawings.get(pid, {}).get("submitted", False) for pid in room["players_order"]},
+        "gallery": gallery,
+        "votes_cast": room["votes"].get(player_id, {}),
+        "vote_target_ids": vote_target_ids(room, player_id) if room["stage"] == "voting" else [],
+        "can_start": room["stage"] == "waiting" and room.get("host_id") == player_id and len(room["players_order"]) >= 2,
+        "can_next": room["stage"] == "results" and room.get("host_id") == player_id and room["round_index"] < TOTAL_ROUNDS - 1,
+        "room_full": len(room["players_order"]) >= MAX_PLAYERS,
+        "round_result": room.get("round_result") or {},
+        "final_winner_id": room.get("final_winner_id"),
+        "max_players": MAX_PLAYERS,
+    }
 
 
 def parse_json(handler):
@@ -408,14 +291,14 @@ def parse_json(handler):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "DrawDuel/0.1"
+    server_version = "DrawDuelVotes/0.2"
 
     def log_message(self, fmt, *args):
         return
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/index.html"):
+        if parsed.path in {"/", "/index.html"}:
             raw = INDEX_HTML.read_bytes()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -430,13 +313,12 @@ class Handler(BaseHTTPRequestHandler):
                 error_response(self, "Asset not found", HTTPStatus.NOT_FOUND)
                 return
             raw = target.read_bytes()
-            suffix = target.suffix.lower()
             content_type = {
                 ".png": "image/png",
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
                 ".webp": "image/webp",
-            }.get(suffix, "application/octet-stream")
+            }.get(target.suffix.lower(), "application/octet-stream")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(raw)))
@@ -473,7 +355,7 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/room/create":
             name = str(payload.get("name", "")).strip()[:24]
             with ROOM_LOCK:
-                room, player_id = create_room(name)
+                room, player_id = fresh_room(name)
                 json_response(self, {"ok": True, "room_code": room["code"], "player_id": player_id})
             return
 
@@ -489,7 +371,13 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, {"ok": True, "room_code": room["code"], "player_id": player_id})
             return
 
-        if parsed.path in {"/api/room/start", "/api/room/next", "/api/draw/update", "/api/draw/submit"}:
+        if parsed.path in {
+            "/api/room/start",
+            "/api/room/next",
+            "/api/draw/update",
+            "/api/draw/submit",
+            "/api/vote",
+        }:
             room_code = str(payload.get("room_code", "")).upper()
             player_id = str(payload.get("player_id", ""))
             with ROOM_LOCK:
@@ -503,7 +391,7 @@ class Handler(BaseHTTPRequestHandler):
                         error_response(self, "Only the host can start")
                         return
                     if len(room["players_order"]) < 2:
-                        error_response(self, "Need two players to start")
+                        error_response(self, "Need at least two players to start")
                         return
                     if room["stage"] != "waiting":
                         error_response(self, "Game already started")
@@ -541,10 +429,30 @@ class Handler(BaseHTTPRequestHandler):
                     room["drawings"][player_id]["strokes"] = payload.get("strokes", [])
                     room["drawings"][player_id]["image"] = payload.get("image", "")
                     room["drawings"][player_id]["submitted"] = True
-                    if all(room["drawings"][pid]["submitted"] for pid in room["players_order"]):
-                        room["stage"] = "judging"
-                        room["judging_started_at"] = time.time()
-                        threading.Thread(target=begin_judging, args=(room_code,), daemon=True).start()
+                    if all_submitted(room):
+                        room["stage"] = "voting"
+                        room["votes"] = {}
+                    json_response(self, sanitize_room(room, player_id))
+                    return
+
+                if parsed.path == "/api/vote":
+                    if room["stage"] != "voting":
+                        error_response(self, "Voting is not active")
+                        return
+                    target_id = str(payload.get("target_id", ""))
+                    choice = str(payload.get("choice", ""))
+                    if target_id == player_id:
+                        error_response(self, "You cannot vote for yourself")
+                        return
+                    if target_id not in room["players"]:
+                        error_response(self, "Target not found")
+                        return
+                    if choice not in {"like", "egg"}:
+                        error_response(self, "Invalid vote")
+                        return
+                    room["votes"].setdefault(player_id, {})[target_id] = choice
+                    if all_votes_complete(room):
+                        finalize_round(room)
                     json_response(self, sanitize_room(room, player_id))
                     return
 
